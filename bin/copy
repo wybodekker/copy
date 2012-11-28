@@ -1,0 +1,323 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require_relative '../lib/copy/version'
+
+MYNAME = File.basename($0)
+#MODES = { 'Lineart' => 'Lineart', 'Gray' => 'Grayscale', 'Color' => 'Color' } # HP scanjet
+MODES = { 'Lineart' => 'Binary',  'Gray' => 'Gray',      'Color' => 'Color' } # Epson Perfection
+
+module FileTest
+   def FileTest.exec_in_path?(name)
+      ENV['PATH'].split(/:/).each {|v|
+         @x = Dir[v + '/' + name]
+         if @x.size>0 && FileTest.executable?(@x[0])
+            return true
+         end
+      }
+      return false
+   end
+
+   def FileTest.missing(*names)
+      missing = []
+      names.each { |v|
+         FileTest.exec_in_path?(v) or missing.push(v)
+      }
+      fail(RuntimeError,
+          "Missing executable#{missing.size > 1 ? 's' : '' } (#{missing.join(', ')})",
+           File.basename($0)) if missing.size > 0
+   end
+end # FileTest
+
+def sys(command)
+   puts command.strip.squeeze(' ') if ::VERBOSE
+   system command or exit(1)
+end
+
+def scan(dir,file)
+   command = <<-EOF
+      scanimage \
+      --resolution=#{$options[:density]} \
+      --mode=#{$options[:mode]} \
+      -l #{$options[:left]} \
+      -t #{$options[:top]} \
+      -x #{$options[:x]} \
+      -y #{$options[:y]} >#{file}.pnm
+   EOF
+   puts command if $options[:verbose]
+   Signal.trap('INT') { puts "\nCan't interrupt!!" }
+   sys command
+   flags = "-rotate #{$options[:rotate]}"
+   unless $options[:imagetype] == 'pnm'
+      sys <<-EOF
+         cd #{dir}
+           convert -quality #{$options[:quality]} \
+                   -brightness-contrast #{$options[:brightness]} \
+                   #{file}.pnm #{flags} #{file}.#{$options[:imagetype]}
+           rm #{file}.pnm
+      EOF
+   end
+end
+
+# defaults:
+$options = {
+:printopts   => 'a',
+:interactive => false,
+:y           => 296.9,
+:x           => 210,
+:verbose     => false,
+:top         => 0,
+:rotate      => 0,
+:n           => 1,
+:multi       => false,
+:mode        => MODES['Color'],
+:left        => 0,
+:imagetype   => 'jpg',
+:contrast    => 0,
+:brightness  => 0,
+:density     => 300,
+:outfile     => nil,
+:quality     => 75,
+:maxx	     => 215.9,
+:maxy	     => 297.18
+}
+
+OptionParser.new do |opt|
+    opt.banner =  "This is copy version #{Copy::VERSION}: copy from scanner to pdf or image(s)\n\n"
+    opt.banner << "Usage: #{MYNAME} [options]\n\n"
+    opt.banner << "With --outfile=S, JPEG images are generated\n"
+    opt.banner << "Without --outfile, a (multipage) pdf is produced which,\n"
+    opt.banner << "   with --multi, can interactively be printed"
+    opt.separator ""
+    opt.separator "Brightness, Contrast, density options"
+    opt.on('-b','--brightness PCT', Integer,
+                "set brightness correction to PCT percent (default: #{$options[:brightness]})"
+          ) do |v|
+               v.between?(-100,100) or
+                  fail(ArgumentError,"brightness must be between -100 and 100",::MYNAME)
+               $options[:brightness] = v
+            end
+
+    opt.on('-c','--contrast PCT',   Integer,
+                "set contrast correction to PCT percent (default: #{$options[:contrast]})"
+          ) do |v|
+               v.between?(-100,100) or
+                  fail(ArgumentError,"contrast must be between -100 and 100",::MYNAME)
+               $options[:contrast] = v
+            end
+
+    opt.on('-d','--density INT',   Integer,
+                "set contrast correction to INT dpi (default: #{$options[:density]})"
+          ) do |v|
+               [300,600,1200,2400].include?(v) or
+                  fail(ArgumentError,"density must be 300, 600, 1200 or 2400 dpi",::MYNAME)
+               $options[:density] = v
+            end
+
+    opt.separator ""
+    opt.separator "Color mode options"
+    opt.on('-C','--color',
+                'Color mode (the default)'
+          ) do
+               $options[:mode] = MODES['Color']
+            end
+
+    opt.on('-G','--gray',
+                'Gray instead of Color mode'
+          ) do
+               $options[:mode] = MODES['Gray']
+            end
+
+    opt.on('-L','--lineart',
+                'Lineart instead of Color mode'
+          ) do |v| $options[:mode] = MODES['Lineart']
+            end
+
+    opt.separator ""
+    opt.separator "Positioning options"
+    opt.on('-l','--left MM', Integer,
+                "set left offset to MM mm (default: #{$options[:left]})"
+          ) do |v| $options[:left] = v end
+
+    opt.on('-t','--top MM', Integer,
+                "set top offset to MM mm (default: #{$options[:top]})"
+          ) do |v| $options[:top] = v end
+
+    opt.on('-x','--x MM', Integer,
+                "set width to MM mm (default: #{$options[:x]})"
+          ) do |v| $options[:x] = [v,$options[:maxx]].min end
+
+    opt.on('-y','--y MM', Integer,
+                "set height to MM mm (default: #{$options[:y]})"
+          ) do |v| $options[:y] = [v,$options[:maxy]].min end
+
+    opt.on('-B','--cd-back',
+                'back of jewelbox'
+          ) do
+	      $options[:x] = 137;
+	      $options[:y] = 117;
+	      $options[:top] = 3;
+	      $options[:left] = 3;
+	      $options[:outfile] = 'back';
+              $options[:mode] = MODES['Color']
+	    end
+
+    opt.on('-F','--cd-front',
+                'front of jewelbox'
+          ) do
+	      $options[:x] = 119;
+	      $options[:y] = 117;
+	      $options[:top] = 3;
+	      $options[:left] = 17;
+	      $options[:outfile] = 'front';
+              $options[:mode] = MODES['Color']
+	    end
+
+    opt.on('-D','--cd-disk',
+                'CD-disk'
+          ) do
+	      $options[:x] = 120;
+	      $options[:y] = 120;
+	      $options[:top] = 0;
+	      $options[:left] = 0;
+	      $options[:outfile] = 'disk';
+              $options[:mode] = MODES['Color']
+	    end
+
+    opt.separator ""
+    opt.separator "Output options"
+    opt.on('-o','--outfile=STRING',String,
+               'set output filename to STRING (default: nil)'
+          )  do |v| $options[:outfile] = v end
+
+    opt.on(     '--imagetype=STRING',String,
+               'set image type to STRING'
+          )  do |v| $options[:imagetype] = v
+                v =~/^(png|jpg|pnm|gif|pgm|pbm|tiff)$/ or
+                   raise(RuntimeError,"Unknown image type #{v}")
+             end
+
+    opt.on('-p','--printopts STRING', String,
+                'set vpp print options to STRING (default: a)'
+          ) do |v| $options[:printopts] = v end
+
+    opt.on('-n','--n COPIES', Integer,
+                'make COPIES copies, if printing (default: 1)'
+          ) do |v| $options[:n] = v end
+
+    opt.separator ""
+    opt.separator "Conversion & Interaction options"
+    opt.on('-m','--multi',
+                'keep scanning, incrementing --outfile or adding pdf pages'
+          ) do $options[:multi] = true  end
+
+    opt.on('-q','--quality PERCENT', Integer,
+                "pnm to jpg conversion quality (%, default #{$options[:quality]})"
+          ) do |v| $options[:quality] = v end
+
+    opt.on('-r','--rotate DEGREES', Integer,
+                'rotate DEGREES degrees clockwise'
+          ) do |v|
+              v = v.to_i
+              unless [0,90,180,270].include?(v)
+                puts "--rotate option argument must be 0, 90, 180, or 270"
+                exit 1
+              end
+              $options[:rotate] = v
+            end
+
+    opt.on('-v','--verbose',
+                'be verbose'
+          ) do |v| $options[:verbose] = true end
+
+    opt.on('-V','--version',
+                'print version and exit'
+          ) do
+               puts opt.version
+               exit
+            end
+
+    opt.on('-i','--interactive',
+                'print interactively'
+          ) do |v| $options[:interactive] = true end
+
+    opt.on('-h','--help',
+                'print this help and exit'
+          ) do
+               puts opt.help
+               exit
+            end
+    opt.on('-e','--examples','show some examples of use') do
+            puts <<-EOD
+	    copy a page to the printer:
+	    	copy
+	    copy multiple pages in gray mode and print (or save as pdf) the result interactively:
+	    	copy -Gmi
+	    create serveral colored JPEG images in testnn.jpg:
+	    	copy -Cmo test
+	    EOD
+            exit(0)
+            end
+end.parse!
+
+ARGV.size >0 and raise(ArgumentError,"Unexpected arguments: #{ARGV}\n",'copy')
+WORKDIR = Dir.getwd
+FileTest.missing('scanimage','convert')
+$options[:printopts] = '' if $options[:interactive]
+VERBOSE = $options[:verbose]
+
+count, file, dir = 1, 'f01', '.'
+if $options[:outfile]
+   file = $options[:outfile]
+   file << '01' if $options[:multi]
+else
+   FileTest.missing('mk','vpp')
+   wd = Dir.getwd
+   dir = "/tmp/#{$$}"
+   Dir.mkdir(dir)
+   Dir.chdir(dir)
+end
+
+loop {
+   if count >1
+      str = ''
+      str = " for scan #{count}" if $options[:multi]
+      print "Scanner ready#{str}? (n to stop) "
+      STDOUT.flush
+      break if gets.chomp == 'n'
+   end
+   scan(dir,file)
+   break unless $options[:multi]
+   file = file.next
+   count += 1
+}
+
+unless $options[:outfile]
+   w,h =  $options[:x], $options[:y]
+   w,h =  h,w if [90,270].include?($options[:rotate])
+
+   tex = open("main.tex",'w')
+   tex.print <<-EOF
+   \\documentclass{article}
+   \\usepackage[margin=0pt,paperwidth=#{w}mm,paperheight=#{h}mm]{geometry}
+   \\parindent0pt\\parskip0pt
+   \\usepackage{graphicx}
+   \\pagestyle{empty}
+   \\begin{document}
+   EOF
+
+   Dir["*."+$options[:imagetype]].sort.each { |f|
+      tex.puts "\\includegraphics[height=.999\\paperheight,width=.999\\paperwidth]{#{f}}\\eject"
+   }
+   tex.puts '\end{document}'
+   tex.close
+
+   $options[:printopts].sub!(/\bo/,"o#{wd}/")
+   flags = (VERBOSE ? '--verbose' : '') +
+       ($options[:interactive] ? ''         : " --batch=#{$options[:printopts]}")
+
+   sys("export VPPCHECKSAVED=1; export VPPOUTDIR='#{WORKDIR}'; mk #{flags}")
+   Dir["#{dir}/*"].each { |d| File.unlink(d) }
+   Dir.rmdir(dir)
+end
+# $Id$
