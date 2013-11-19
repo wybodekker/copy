@@ -1,9 +1,73 @@
 #!/usr/bin/env ruby
+<<'DOC'
+= copy - copy from scanner to pdf or image file(s)
+
+= Synopsis
+
+	copy [options]
+
+= Description
+
+copy, without |--outfile| and |--interactive| scans a
+sheet and prints it. With |--multi|, a multi-page pdf document is produced.
+
+With |--interactive|, a PDF file is produced, which is viewed
+using |vpp| and can printed with |vpp|'s facilities.
+
+With |--outfile=S|, JPEG images are generated,
+named |S.jpg|, or, if |--multi| is used, |S01.jpg, S01.jpg, ....|
+
+= Options
+	
+Brightness, Contrast, density options:
+-b, --brightness PCT	set brightness correction to |PCT| percent (default: 0)
+-c, --contrast PCT	set contrast correction to |PCT| percent (default: 0)
+-d, --density INT	set contrast correction to |INT| dpi (default: 300)
+	
+Color mode options:
+-C, --color		Color mode (the default)
+-G, --gray		Gray instead of Lineart mode
+-L, --lineart		Lineart instead of Color mode
+	
+Positioning $options:
+-l, --left MM		set left offset to |MM| mm (default: 0)
+-t, --top MM		set top offset to |MM| mm (default: 0)
+-x, --x MM		set width to |MM| mm (default: 210)
+-y, --y MM		set height to |MM| mm (default: 296.9)
+-B, --cd-back		back of jewelbox (137x117+3+3)
+-F, --cd-front		front of jewelbox (119x117+3+17))
+-D, --cd-disk		CD disk (120x120+0+0)
+	
+Output options:
+-o, --outfile=STRING	set output filename to |STRING| (default: nil)
+   --imagetype=STRING	set image type to |STRING|
+-p, --printopts STRING	set vpp print options to |STRING| (default: a)
+-n, --n COPIES		make |COPIES| copies, if printing (default: 1)
+	
+Conversion & Interaction options:
+-m, --multi		keep scanning, incrementing |--outfile| or adding pdf pages
+-q, --quality PERCENT	pnm to jpg conversion quality (%, default 75)
+-r, --rotate DEGREES	rotate |DEGREES| degrees clockwise (0, 90, 180 or 270 only)
+-v, --verbose		be verbose
+-i, --interactive	print interactively
+-h, --help		print this help
+-e, --examples		show some examples of use
+
+= Author
+Copyright (C) 2009 Wybo Dekker (U{mailto:wybo@dekkerdocumenten.nl}{mail})
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the U{http://www.gnu.org/licenses/}{GNU General Public License} as
+published by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version. It is distributed in the hope that it will
+be useful, but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+DOC
 
 require 'optparse'
-require_relative '../lib/copy/version'
 
 MYNAME = File.basename($0)
+VERSION='1.00'
 #MODES = { 'Lineart' => 'Lineart', 'Gray' => 'Grayscale', 'Color' => 'Color' } # HP scanjet
 MODES = { 'Lineart' => 'Binary',  'Gray' => 'Gray',      'Color' => 'Color' } # Epson Perfection
 
@@ -78,12 +142,12 @@ $options = {
 :density     => 300,
 :outfile     => nil,
 :quality     => 75,
-:maxx	     => 215.9,
-:maxy	     => 297.18
+:maxx        => 215.9,
+:maxy        => 297.18
 }
 
 OptionParser.new do |opt|
-    opt.banner =  "This is copy version #{Copy::VERSION}: copy from scanner to pdf or image(s)\n\n"
+    opt.banner =  "This is copy version #{VERSION}: copy from scanner to pdf or image(s)\n\n"
     opt.banner << "Usage: #{MYNAME} [options]\n\n"
     opt.banner << "With --outfile=S, JPEG images are generated\n"
     opt.banner << "Without --outfile, a (multipage) pdf is produced which,\n"
@@ -154,35 +218,35 @@ OptionParser.new do |opt|
     opt.on('-B','--cd-back',
                 'back of jewelbox'
           ) do
-	      $options[:x] = 137;
-	      $options[:y] = 117;
-	      $options[:top] = 3;
-	      $options[:left] = 3;
-	      $options[:outfile] = 'back';
+              $options[:x] = 137;
+              $options[:y] = 117;
+              $options[:top] = 3;
+              $options[:left] = 3;
+              $options[:outfile] = 'back';
               $options[:mode] = MODES['Color']
-	    end
+            end
 
     opt.on('-F','--cd-front',
                 'front of jewelbox'
           ) do
-	      $options[:x] = 119;
-	      $options[:y] = 117;
-	      $options[:top] = 3;
-	      $options[:left] = 17;
-	      $options[:outfile] = 'front';
+              $options[:x] = 119;
+              $options[:y] = 117;
+              $options[:top] = 3;
+              $options[:left] = 17;
+              $options[:outfile] = 'front';
               $options[:mode] = MODES['Color']
-	    end
+            end
 
     opt.on('-D','--cd-disk',
                 'CD-disk'
           ) do
-	      $options[:x] = 120;
-	      $options[:y] = 120;
-	      $options[:top] = 0;
-	      $options[:left] = 0;
-	      $options[:outfile] = 'disk';
+              $options[:x] = 120;
+              $options[:y] = 120;
+              $options[:top] = 0;
+              $options[:left] = 0;
+              $options[:outfile] = 'disk';
               $options[:mode] = MODES['Color']
-	    end
+            end
 
     opt.separator ""
     opt.separator "Output options"
@@ -249,15 +313,16 @@ OptionParser.new do |opt|
             end
     opt.on('-e','--examples','show some examples of use') do
             puts <<-EOD
-	    copy a page to the printer:
-	    	copy
-	    copy multiple pages in gray mode and print (or save as pdf) the result interactively:
-	    	copy -Gmi
-	    create serveral colored JPEG images in testnn.jpg:
-	    	copy -Cmo test
-	    EOD
+            copy a page to the printer:
+                copy
+            copy multiple pages in gray mode and print (or save as pdf) the result interactively:
+                copy -Gmi
+            create serveral colored JPEG images in testnn.jpg:
+                copy -Cmo test
+            EOD
             exit(0)
             end
+    opt.on('-I') do system("instscript #{MYNAME}"); exit; end
 end.parse!
 
 ARGV.size >0 and raise(ArgumentError,"Unexpected arguments: #{ARGV}\n",'copy')
