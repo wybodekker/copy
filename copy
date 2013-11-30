@@ -1,4 +1,8 @@
 #!/usr/bin/env ruby
+
+VERSION='1.01'
+MYNAME = File.basename($0)
+
 <<'DOC'
 = copy - copy from scanner to pdf or image file(s)
 
@@ -40,13 +44,14 @@ Positioning $options:
 	
 Output options:
 -o, --outfile=STRING	set output filename to |STRING| (default: nil)
-   --imagetype=STRING	set image type to |STRING|
+    --imagetype=STRING	set image type to |STRING|; default: jpg
+			available: jpg, png, gif, tiff, ppm, pgm, pbm
 -p, --printopts STRING	set vpp print options to |STRING| (default: a)
 -n, --n COPIES		make |COPIES| copies, if printing (default: 1)
 	
 Conversion & Interaction options:
 -m, --multi		keep scanning, incrementing |--outfile| or adding pdf pages
--q, --quality PERCENT	pnm to jpg conversion quality (%, default 75)
+-q, --quality PERCENT	jpg conversion quality (%, default 75)
 -r, --rotate DEGREES	rotate |DEGREES| degrees clockwise (0, 90, 180 or 270 only)
 -v, --verbose		be verbose
 -i, --interactive	print interactively
@@ -61,8 +66,6 @@ DOC
 
 require 'optparse'
 
-MYNAME = File.basename($0)
-VERSION='1.00'
 #MODES = { 'Lineart' => 'Lineart', 'Gray' => 'Grayscale', 'Color' => 'Color' } # HP scanjet
 MODES = { 'Lineart' => 'Binary',  'Gray' => 'Gray',      'Color' => 'Color' } # Epson Perfection
 
@@ -101,19 +104,19 @@ def scan(dir,file)
       -l #{$options[:left]} \
       -t #{$options[:top]} \
       -x #{$options[:x]} \
-      -y #{$options[:y]} >#{file}.pnm
+      -y #{$options[:y]} >#{file}.ppm
    EOF
    puts command if $options[:verbose]
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
    sys command
    flags = "-rotate #{$options[:rotate]}"
-   unless $options[:imagetype] == 'pnm'
+   unless $options[:imagetype] == 'ppm'
       sys <<-EOF
          cd #{dir}
            convert -quality #{$options[:quality]} \
                    -brightness-contrast #{$options[:brightness]} \
-                   #{file}.pnm #{flags} #{file}.#{$options[:imagetype]}
-           rm #{file}.pnm
+                   #{file}.ppm #{flags} #{file}.#{$options[:imagetype]}
+           rm #{file}.ppm
       EOF
    end
 end
@@ -252,7 +255,7 @@ OptionParser.new do |opt|
     opt.on(     '--imagetype=STRING',String,
                'set image type to STRING'
           )  do |v| $options[:imagetype] = v
-                v =~/^(png|jpg|pnm|gif|pgm|pbm|tiff)$/ or
+                v =~/^(png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
                    raise(RuntimeError,"Unknown image type #{v}")
              end
 
@@ -271,7 +274,7 @@ OptionParser.new do |opt|
           ) do $options[:multi] = true  end
 
     opt.on('-q','--quality PERCENT', Integer,
-                "pnm to jpg conversion quality (%, default #{$options[:quality]})"
+                "jpg conversion quality (%, default #{$options[:quality]})"
           ) do |v| $options[:quality] = v end
 
     opt.on('-r','--rotate DEGREES', Integer,
