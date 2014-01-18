@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-VERSION='1.01'
+Version='1.01'
 MYNAME = File.basename($0)
 
 <<'DOC'
@@ -145,7 +145,7 @@ $options = {
 }
 
 OptionParser.new do |opt|
-    opt.banner =  "This is copy version #{VERSION}: copy from scanner to pdf or image(s)\n\n"
+    opt.banner =  "This is copy version #{Version}: copy from scanner to pdf or image(s)\n\n"
     opt.banner << "Usage: #{MYNAME} [options]\n\n"
     opt.banner << "With --outfile=S, JPEG images are generated\n"
     opt.banner << "Without --outfile, a (multipage) pdf is produced which,\n"
