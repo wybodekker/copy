@@ -109,6 +109,7 @@ def scan(dir,file)
    puts command if $options[:verbose]
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
    sys command
+   sys("exiftool -comment='' #{file}.ppm >/dev/null")
    flags = "-rotate #{$options[:rotate]}"
    unless $options[:imagetype] == 'ppm'
       sys <<-EOF
