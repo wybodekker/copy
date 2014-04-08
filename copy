@@ -7,22 +7,25 @@ MYNAME = File.basename($0)
 = copy - copy from scanner to pdf or image file(s)
 
 = Synopsis
-
-	copy [options]
+copy [options]	
 
 = Description
+copy scans an image, or multiple images, and either prints those, or generates
+one or more images files, or a PDF file with one or more images, one per page.
+Many options are available to influence brightness, contrast, pixel density, 
+color mode, image quality, rotation, page position and size, and more.
 
 copy, without |--outfile| and |--interactive| scans a
-sheet and prints it. With |--multi|, a multi-page pdf document is produced.
+sheet and prints it. With |--multi|, multiple images or a multi-page pdf
+document are produced.
 
-With |--interactive|, a PDF file is produced, which is viewed
-using |vpp| and can printed with |vpp|'s facilities.
+With |--interactive|, a PDF file is produced, which is viewed using |vpp|
+and can printed with |vpp|'s facilities.
 
-With |--outfile=S|, JPEG images are generated,
-named |S.jpg|, or, if |--multi| is used, |S01.jpg, S01.jpg, ....|
+With |--outfile=S|, JPEG images are generated, named |S.jpg|, or, if
+|--multi| is used, |S01.jpg, S01.jpg, ....|
 
 = Options
-	
 Brightness, Contrast, density options:
 -b, --brightness PCT	set brightness correction to |PCT| percent (default: 0)
 -c, --contrast PCT	set contrast correction to |PCT| percent (default: 0)
