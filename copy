@@ -27,44 +27,44 @@ With |--outfile=S|, JPEG images are generated, named |S.jpg|, or, if
 
 = Options
 Brightness, Contrast, density options:
--b, --brightness PCT	set brightness correction to |PCT| percent (default: 0)
--c, --contrast PCT	set contrast correction to |PCT| percent (default: 0)
--d, --density INT	set contrast correction to |INT| dpi (default: 300)
+-b,--brightness PCT	set brightness correction to |PCT| percent (default: 0)
+-c,--contrast PCT	set contrast correction to |PCT| percent (default: 0)
+-d,--density INT	set contrast correction to |INT| dpi (default: 300)
 	
 Color mode options:
--C, --color		Color mode (the default)
--G, --gray		Gray instead of Lineart mode
--L, --lineart		Lineart instead of Color mode
+-C,--color		Color mode (the default)
+-G,--gray		Gray instead of Lineart mode
+-L,--lineart		Lineart instead of Color mode
 	
 Positioning $options:
--l, --left MM		set left offset to |MM| mm (default: 0)
--t, --top MM		set top offset to |MM| mm (default: 0)
--x, --x MM		set width to |MM| mm (default: 210)
--y, --y MM		set height to |MM| mm (default: 296.9)
--B, --cd-back		back of jewelbox (137x117+3+3)
--F, --cd-front		front of jewelbox (119x117+3+17))
--D, --cd-disk		CD disk (120x120+0+0)
+-l,--left MM		set left offset to |MM| mm (default: 0)
+-t,--top MM		set top offset to |MM| mm (default: 0)
+-x,--x MM		set width to |MM| mm (default: 210)
+-y,--y MM		set height to |MM| mm (default: 296.9)
+-B,--cd-back		back of jewelbox (137x117+3+3)
+-F,--cd-front		front of jewelbox (119x117+3+17))
+-D,--cd-disk		CD disk (120x120+0+0)
 	
 Output options:
--o, --outfile=STRING	set output filename to |STRING| (default: nil)
-    --imagetype=STRING	set image type to |STRING|; default: jpg
+-o,--outfile=STRING	set output filename to |STRING| (default: nil)
+   --imagetype=STRING	set image type to |STRING|; default: jpg
 			available: jpg, png, gif, tiff, ppm, pgm, pbm
--p, --printopts STRING	set vpp print options to |STRING| (default: a)
--n, --n COPIES		make |COPIES| copies, if printing (default: 1)
+-p,--printopts STRING	set vpp print options to |STRING| (default: a)
+-n,--n COPIES		make |COPIES| copies, if printing (default: 1)
 	
 Conversion & Interaction options:
--m, --multi		keep scanning, incrementing |--outfile| or adding pdf pages
--q, --quality PERCENT	jpg conversion quality (%, default 75)
--r, --rotate DEGREES	rotate |DEGREES| degrees clockwise (0, 90, 180 or 270 only)
--v, --verbose		be verbose
--i, --interactive	print interactively
--h, --help		print this help
--e, --examples		show some examples of use
+-m,--multi		keep scanning, incrementing |--outfile| or adding pdf pages
+-q,--quality PERCENT	jpg conversion quality (%, default 75)
+-r,--rotate DEGREES	rotate |DEGREES| degrees clockwise (0, 90, 180 or 270 only)
+-v,--verbose		be verbose
+-i,--interactive	print interactively
+-h,--help		print this help
+-e,--examples		show some examples of use
 
 = Author and copyright
 Author	Wybo Dekker
 Email	U{Wybo@dekkerdocumenten.nl}{wybo@dekkerdocumenten.nl}
-License	Released under the U{http://www.gnu.org/copyleft/gpl.html}{GNU General Public License}
+License	Released under the U{www.gnu.org/copyleft/gpl.html}{GNU General Public License}
 DOC
 
 require 'optparse'
