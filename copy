@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-Version='1.01'
+Version='1.02'
 MYNAME = File.basename($0)
 
 <<'DOC'
@@ -112,7 +112,7 @@ def scan(dir,file)
    puts command if $options[:verbose]
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
    sys command
-   sys("exiftool -comment='' #{file}.ppm >/dev/null")
+   sys("exiftool -comment='' -overwrite_original_in_place  #{file}.ppm >/dev/null")
    flags = "-rotate #{$options[:rotate]}"
    unless $options[:imagetype] == 'ppm'
       sys <<-EOF
