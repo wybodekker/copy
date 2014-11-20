@@ -324,7 +324,7 @@ OptionParser.new do |opt|
             EOD
             exit(0)
             end
-    opt.on('-I') do system("instscript #{MYNAME}"); exit; end
+    opt.on('-I') do system("instscript --markdown #{MYNAME}"); exit; end
 end.parse!
 
 ARGV.size >0 and raise(ArgumentError,"Unexpected arguments: #{ARGV}\n",'copy')
