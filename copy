@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='1.02'
+Version='1.03'
 MYNAME = File.basename($0)
 
 <<'DOC'
@@ -27,6 +27,9 @@ With |--outfile=S|, JPEG images are generated, named |S.jpg|, or, if
 |--multi| is used, |S01.jpg, S01.jpg, ....|
 
 = Options
+Device option:
+--device=N		set the device to N
+
 Brightness, Contrast, density options:
 -b,--brightness PCT	set brightness correction to |PCT| percent (default: 0)
 -c,--contrast PCT	set contrast correction to |PCT| percent (default: 0)
@@ -37,7 +40,7 @@ Color mode options:
 -G,--gray		Gray instead of Lineart mode
 -L,--lineart		Lineart instead of Color mode
 	
-Positioning $options:
+Positioning options:
 -l,--left MM		set left offset to |MM| mm (default: 0)
 -t,--top MM		set top offset to |MM| mm (default: 0)
 -x,--x MM		set width to |MM| mm (default: 210)
@@ -50,7 +53,6 @@ Output options:
 -o,--outfile=STRING	set output filename to |STRING| (default: nil)
    --imagetype=STRING	set image type to |STRING|; default: jpg
 			available: jpg, png, gif, tiff, ppm, pgm, pbm
--p,--printopts STRING	set vpp print options to |STRING| (default: a)
 -n,--n COPIES		make |COPIES| copies, if printing (default: 1)
 	
 Conversion & Interaction options:
@@ -69,9 +71,35 @@ License	Released under the U{www.gnu.org/copyleft/gpl.html}{GNU General Public L
 DOC
 
 require 'optparse'
+require 'ostruct'
 
-#MODES = { 'Lineart' => 'Lineart', 'Gray' => 'Grayscale', 'Color' => 'Color' } # HP scanjet
-MODES = { 'Lineart' => 'Binary',  'Gray' => 'Gray',      'Color' => 'Color' } # Epson Perfection
+# This should eventually go to a config file
+DEVICES = [
+   OpenStruct.new(
+      :device  => 'epkowa',
+      :name    => 'Epson V350',
+      :Lineart => 'Binary',
+      :Gray    => 'Gray',
+      :Color   => 'Color',
+      :xmax    => 215.9,
+      :ymax    => 297.18,
+      :xdpi    => [100,200,300,400,600,800,1200,2400,4800],
+      :ydpi    => [100,200,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
+      :hasxy   => true
+   ),
+   OpenStruct.new(
+      :device  => 'canon_dr',
+      :name    => 'Canon DR2080C',
+      :Lineart => 'Lineart',
+      :Gray    => 'Gray',
+      :Color   => 'Color',
+      :xmax    => 215.872,
+      :ymax    => 279.364,
+      :xdpi    => [100,150,200,240,300,400,600],
+      :ydpi    => [100,150,200,240,300,400,600],
+      :hasxy   => false
+   )
+] 
 
 module FileTest
    def FileTest.exec_in_path?(name)
@@ -96,89 +124,108 @@ module FileTest
 end # FileTest
 
 def sys(command)
-   puts command.strip.squeeze(' ') if ::VERBOSE
+   puts command.strip.squeeze('a ') if ::VERBOSE
    system command or exit(1)
 end
 
-def scan(dir,file)
+def scan(op,dir,file)
    command = <<-EOF
       scanimage \
-      --resolution=#{$options[:density]} \
-      --mode=#{$options[:mode]} \
-      -l #{$options[:left]} \
-      -t #{$options[:top]} \
-      -x #{$options[:x]} \
-      -y #{$options[:y]} >#{file}.ppm
+      --device=#{op.device.device} \
+      --#{op.device.hasxy ? 'x-' : ''}resolution #{op.density} \
+      --#{op.device.hasxy ? 'y-' : ''}resolution #{op.density} \
+      --mode #{op.mode} \
+      -l #{op.left} \
+      -t #{op.top} \
+      -x #{op.x} \
+      -y #{op.y} >#{dir}/#{file}.ppm
    EOF
-   puts command if $options[:verbose]
+   puts command if op.verbose
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
    sys command
-   sys("exiftool -comment='' -overwrite_original_in_place  #{file}.ppm >/dev/null")
-   flags = "-rotate #{$options[:rotate]}"
-   unless $options[:imagetype] == 'ppm'
+   sys("exiftool -comment='' -overwrite_original_in_place  #{dir}/#{file}.ppm >/dev/null")
+   flags = "-rotate #{op.rotate}"
+   unless op.imagetype == 'ppm'
       sys <<-EOF
-         cd #{dir}
-           convert -quality #{$options[:quality]} \
-                   -brightness-contrast #{$options[:brightness]} \
-                   #{file}.ppm #{flags} #{file}.#{$options[:imagetype]}
-           rm #{file}.ppm
+           convert -quality #{op.quality} \
+		   -density #{op.density} \
+                   -brightness-contrast #{op.brightness} \
+                   #{dir}/#{file}.ppm #{flags} #{dir}/#{file}.#{op.imagetype}
+           rm #{dir}/#{file}.ppm
       EOF
    end
 end
 
 # defaults:
-$options = {
-:printopts   => 'a',
-:interactive => false,
-:y           => 296.9,
-:x           => 210,
-:verbose     => false,
-:top         => 0,
-:rotate      => 0,
-:n           => 1,
-:multi       => false,
-:mode        => MODES['Color'],
-:left        => 0,
-:imagetype   => 'jpg',
-:contrast    => 0,
-:brightness  => 0,
-:density     => 300,
-:outfile     => nil,
-:quality     => 75,
-:maxx        => 215.9,
-:maxy        => 297.18
-}
+op = OpenStruct.new(
+  :brightness  => 0,
+  :contrast    => 0,
+  :density     => 300,
+  :device      => DEVICES[0],
+  :imagetype   => 'jpg',
+  :interactive => false,
+  :left        => 0,
+  :maxx        => DEVICES[0].xmax,
+  :maxy        => DEVICES[0].ymax,
+  :mode        => DEVICES[0].Color,
+  :multi       => false,
+  :n           => 1,
+  :name        => DEVICES[0].name,
+  :outfile     => nil,
+  :quality     => 75,
+  :rotate      => 0,
+  :top         => 0,
+  :verbose     => false,
+  :x           => [DEVICES[0].xmax,210].min,
+  :y           => [DEVICES[0].ymax,297].min,
+)
 
 OptionParser.new do |opt|
     opt.banner =  "This is copy version #{Version}: copy from scanner to pdf or image(s)\n\n"
-    opt.banner << "Usage: #{MYNAME} [options]\n\n"
+    opt.banner << "Usage: #{MYNAME} [--device=n]  [other options]\n\n"
     opt.banner << "With --outfile=S, JPEG images are generated\n"
     opt.banner << "Without --outfile, a (multipage) pdf is produced which,\n"
     opt.banner << "   with --multi, can interactively be printed"
     opt.separator ""
+    opt.separator "Scan device"
+    opt.on('--device N',Integer,
+                "set the scan device number; the default is 0 (#{op.name})"
+          ) do |v|
+               v.between?(0,DEVICES.size-1) or
+                  fail(ArgumentError,"the device number must be between 0 and #{DEVICES.size-1}")
+               d = DEVICES[v]
+               op.device = d
+               op.name   = d.name
+               op.x      = [d.xmax,210].min
+               op.y      = [d.ymax,297].min
+               op.mode   = d.Color
+               op.maxx   = d.xmax
+               op.maxy   = d.ymax
+            end
+    opt.separator ""
     opt.separator "Brightness, Contrast, density options"
     opt.on('-b','--brightness PCT', Integer,
-                "set brightness correction to PCT percent (default: #{$options[:brightness]})"
+                "set brightness correction to PCT percent (default: #{op.brightness})"
           ) do |v|
                v.between?(-100,100) or
                   fail(ArgumentError,"brightness must be between -100 and 100",::MYNAME)
-               $options[:brightness] = v
+               op.brightness = v
             end
 
     opt.on('-c','--contrast PCT',   Integer,
-                "set contrast correction to PCT percent (default: #{$options[:contrast]})"
+                "set contrast correction to PCT percent (default: #{op.contrast})"
           ) do |v|
                v.between?(-100,100) or
                   fail(ArgumentError,"contrast must be between -100 and 100",::MYNAME)
-               $options[:contrast] = v
+               op.contrast = v
             end
 
     opt.on('-d','--density INT',   Integer,
-                "set contrast correction to INT dpi (default: #{$options[:density]})"
+                "set contrast correction to INT dpi (default: #{op.density})"
           ) do |v|
-               [300,600,1200,2400].include?(v) or
-                  fail(ArgumentError,"density must be 300, 600, 1200 or 2400 dpi",::MYNAME)
-               $options[:density] = v
+               op.device.xdpi.include?(v) or
+                  fail(ArgumentError,"density must be in #{op.device.xdpi.inspect} dpi",::MYNAME)
+               op.density = v
             end
 
     opt.separator ""
@@ -186,101 +233,97 @@ OptionParser.new do |opt|
     opt.on('-C','--color',
                 'Color mode (the default)'
           ) do
-               $options[:mode] = MODES['Color']
+               op.mode = op.device.Color
             end
 
     opt.on('-G','--gray',
                 'Gray instead of Color mode'
           ) do
-               $options[:mode] = MODES['Gray']
+               op.mode = op.device.Gray
             end
 
     opt.on('-L','--lineart',
                 'Lineart instead of Color mode'
-          ) do |v| $options[:mode] = MODES['Lineart']
+          ) do |v| op.mode = op.device.Lineart
             end
 
     opt.separator ""
     opt.separator "Positioning options"
     opt.on('-l','--left MM', Integer,
-                "set left offset to MM mm (default: #{$options[:left]})"
-          ) do |v| $options[:left] = v end
+                "set left offset to MM mm (default: #{op.left})"
+          ) do |v| op.left = v end
 
     opt.on('-t','--top MM', Integer,
-                "set top offset to MM mm (default: #{$options[:top]})"
-          ) do |v| $options[:top] = v end
+                "set top offset to MM mm (default: #{op.top})"
+          ) do |v| op.top = v end
 
     opt.on('-x','--x MM', Integer,
-                "set width to MM mm (default: #{$options[:x]})"
-          ) do |v| $options[:x] = [v,$options[:maxx]].min end
+                "set width to MM mm (default: #{op.x})"
+          ) do |v| op.x = [v,op.maxx].min end
 
     opt.on('-y','--y MM', Integer,
-                "set height to MM mm (default: #{$options[:y]})"
-          ) do |v| $options[:y] = [v,$options[:maxy]].min end
+                "set height to MM mm (default: #{op.y})"
+          ) do |v| op.y = [v,op.maxy].min end
 
     opt.on('-B','--cd-back',
                 'back of jewelbox'
           ) do
-              $options[:x] = 137;
-              $options[:y] = 117;
-              $options[:top] = 3;
-              $options[:left] = 3;
-              $options[:outfile] = 'back';
-              $options[:mode] = MODES['Color']
+              op.x = 137;
+              op.y = 117;
+              op.top = 3;
+              op.left = 3;
+              op.outfile = 'back';
+              op.mode = op.device.Color
             end
 
     opt.on('-F','--cd-front',
                 'front of jewelbox'
           ) do
-              $options[:x] = 119;
-              $options[:y] = 117;
-              $options[:top] = 3;
-              $options[:left] = 17;
-              $options[:outfile] = 'front';
-              $options[:mode] = MODES['Color']
+              op.x = 119;
+              op.y = 117;
+              op.top = 3;
+              op.left = 17;
+              op.outfile = 'front';
+              op.mode = op.device.Color
             end
 
     opt.on('-D','--cd-disk',
                 'CD-disk'
           ) do
-              $options[:x] = 120;
-              $options[:y] = 120;
-              $options[:top] = 0;
-              $options[:left] = 0;
-              $options[:outfile] = 'disk';
-              $options[:mode] = MODES['Color']
+              op.x = 120;
+              op.y = 120;
+              op.top = 0;
+              op.left = 0;
+              op.outfile = 'disk';
+              op.mode = op.device.Color
             end
 
     opt.separator ""
     opt.separator "Output options"
     opt.on('-o','--outfile=STRING',String,
                'set output filename to STRING (default: nil)'
-          )  do |v| $options[:outfile] = v end
+          )  do |v| op.outfile = v end
 
     opt.on(     '--imagetype=STRING',String,
                'set image type to STRING'
-          )  do |v| $options[:imagetype] = v
+          )  do |v| op.imagetype = v
                 v =~/^(png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
                    raise(RuntimeError,"Unknown image type #{v}")
              end
 
-    opt.on('-p','--printopts STRING', String,
-                'set vpp print options to STRING (default: a)'
-          ) do |v| $options[:printopts] = v end
-
     opt.on('-n','--n COPIES', Integer,
                 'make COPIES copies, if printing (default: 1)'
-          ) do |v| $options[:n] = v end
+          ) do |v| op.n = v end
 
     opt.separator ""
     opt.separator "Conversion & Interaction options"
     opt.on('-m','--multi',
                 'keep scanning, incrementing --outfile or adding pdf pages'
-          ) do $options[:multi] = true  end
+          ) do op.multi = true  end
 
     opt.on('-q','--quality PERCENT', Integer,
-                "jpg conversion quality (%, default #{$options[:quality]})"
-          ) do |v| $options[:quality] = v end
+                "jpg conversion quality (%, default #{op.quality})"
+          ) do |v| op.quality = v end
 
     opt.on('-r','--rotate DEGREES', Integer,
                 'rotate DEGREES degrees clockwise'
@@ -290,12 +333,12 @@ OptionParser.new do |opt|
                 puts "--rotate option argument must be 0, 90, 180, or 270"
                 exit 1
               end
-              $options[:rotate] = v
+              op.rotate = v
             end
 
     opt.on('-v','--verbose',
                 'be verbose'
-          ) do |v| $options[:verbose] = true end
+          ) do |v| op.verbose = true end
 
     opt.on('-V','--version',
                 'print version and exit'
@@ -306,7 +349,7 @@ OptionParser.new do |opt|
 
     opt.on('-i','--interactive',
                 'print interactively'
-          ) do |v| $options[:interactive] = true end
+          ) do |v| op.interactive = true end
 
     opt.on('-h','--help',
                 'print this help and exit'
@@ -331,40 +374,43 @@ end.parse!
 ARGV.size >0 and raise(ArgumentError,"Unexpected arguments: #{ARGV}\n",'copy')
 WORKDIR = Dir.getwd
 FileTest.missing('scanimage','convert')
-$options[:printopts] = '' if $options[:interactive]
-VERBOSE = $options[:verbose]
+VERBOSE = op.verbose
 
 count, file, dir = 1, 'f01', '.'
-if $options[:outfile]
-   file = $options[:outfile]
-   file << '01' if $options[:multi]
+if op.outfile
+   file = op.outfile
+   file << '01' if op.multi
 else
    FileTest.missing('mk','vpp')
-   wd = Dir.getwd
-   dir = "/tmp/#{$$}"
+   dir = "/tmp/#{MYNAME}-#{$$}"
    Dir.mkdir(dir)
-   Dir.chdir(dir)
+   [0,1,2,15].each do |s|
+      Signal.trap(s) do
+         Dir["#{dir}/*"].each { |d| File.unlink(d) }
+         Dir.rmdir(dir)
+      end
+   end
 end
 
 loop {
    if count >1
       str = ''
-      str = " for scan #{count}" if $options[:multi]
+      str = " for scan #{count}" if op.multi
       print "Scanner ready#{str}? (n to stop) "
       STDOUT.flush
       break if gets.chomp == 'n'
    end
-   scan(dir,file)
-   break unless $options[:multi]
+   scan(op,dir,file)
+   break unless op.multi
    file = file.next
    count += 1
 }
 
-unless $options[:outfile]
-   w,h =  $options[:x], $options[:y]
-   w,h =  h,w if [90,270].include?($options[:rotate])
+unless op.outfile
+   w,h =  op.x, op.y
+   w,h =  h,w if [90,270].include?(op.rotate)
 
-   tex = open("main.tex",'w')
+   tex = open("#{dir}/main.tex",'w')
    tex.print <<-EOF
    \\documentclass{article}
    \\usepackage[margin=0pt,paperwidth=#{w}mm,paperheight=#{h}mm]{geometry}
@@ -374,17 +420,13 @@ unless $options[:outfile]
    \\begin{document}
    EOF
 
-   Dir["*."+$options[:imagetype]].sort.each { |f|
+   Dir["#{dir}/*."+op.imagetype].sort.each { |f|
       tex.puts "\\includegraphics[height=.999\\paperheight,width=.999\\paperwidth]{#{f}}\\eject"
    }
    tex.puts '\end{document}'
    tex.close
 
-   $options[:printopts].sub!(/\bo/,"o#{wd}/")
-   flags = (VERBOSE ? '--verbose' : '') +
-       ($options[:interactive] ? ''         : " --batch=#{$options[:printopts]}")
+   flags = (VERBOSE ? '--verbose' : '')
 
-   sys("export VPPCHECKSAVED=1; export VPPOUTDIR='#{WORKDIR}'; mk #{flags}")
-   Dir["#{dir}/*"].each { |d| File.unlink(d) }
-   Dir.rmdir(dir)
+   sys("VPPCHECKSAVED=1 mk #{dir}/main #{flags}")
 end
