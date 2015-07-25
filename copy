@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='1.03'
-MYNAME = File.basename($0)
+Version='1.04'
+MYNAME = 'copy'
 
 <<'DOC'
 = copy - copy from scanner to pdf or image file(s)
@@ -24,45 +24,69 @@ With |--interactive|, a PDF file is produced, which is viewed using |vpp|
 and can printed with |vpp|'s facilities.
 
 With |--outfile=S|, JPEG images are generated, named |S.jpg|, or, if
-|--multi| is used, |S01.jpg, S01.jpg, ....|
+|--multi| is used, |S01.jpg, S02.jpg, ...|
 
 = Options
 Device option:
---device=N		set the device to N
+--device=N	
+	set the device to N
 
 Brightness, Contrast, density options:
--b,--brightness PCT	set brightness correction to |PCT| percent (default: 0)
--c,--contrast PCT	set contrast correction to |PCT| percent (default: 0)
--d,--density INT	set contrast correction to |INT| dpi (default: 300)
+-b,--brightness=PCT	
+	set brightness correction to |PCT| percent (default: 0)
+-c,--contrast=PCT	
+	set contrast correction to |PCT| percent (default: 0)
+-d,--density=INT	
+	set contrast correction to |INT| dpi (default: 300)
 	
 Color mode options:
--C,--color		Color mode (the default)
--G,--gray		Gray instead of Lineart mode
--L,--lineart		Lineart instead of Color mode
+-C,--color		
+	Color mode (the default)
+-G,--gray		
+	Gray instead of Lineart mode
+-L,--lineart		
+	Lineart instead of Color mode
 	
 Positioning options:
--l,--left MM		set left offset to |MM| mm (default: 0)
--t,--top MM		set top offset to |MM| mm (default: 0)
--x,--x MM		set width to |MM| mm (default: 210)
--y,--y MM		set height to |MM| mm (default: 296.9)
--B,--cd-back		back of jewelbox (137x117+3+3)
--F,--cd-front		front of jewelbox (119x117+3+17))
--D,--cd-disk		CD disk (120x120+0+0)
+-l,--left=MM		
+	set left offset to |MM| mm (default: 0)
+-t,--top=MM		
+	set top offset to |MM| mm (default: 0)
+-x,--x=MM		
+	set width to |MM| mm (default: 210)
+-y,--y=MM		
+	set height to |MM| mm (default: 296.9)
+-B,--cd-back		
+	back of jewelbox (137x117+3+3)
+-F,--cd-front		
+	front of jewelbox (119x117+3+17))
+-D,--cd-disk		
+	CD disk (120x120+0+0)
 	
 Output options:
--o,--outfile=STRING	set output filename to |STRING| (default: nil)
-   --imagetype=STRING	set image type to |STRING|; default: jpg
-			available: jpg, png, gif, tiff, ppm, pgm, pbm
--n,--n COPIES		make |COPIES| copies, if printing (default: 1)
+-o,--outfile=STRING	
+	set output filename to |STRING| (default: nil)
+   --imagetype=STRING	
+	set image type to |STRING|; default: jpg;
+	available are: jpg, png, gif, tiff, ppm, pgm, pbm
+-n,--number=COPIES	
+	make |COPIES| copies, if printing (default: 1)
 	
 Conversion & Interaction options:
--m,--multi		keep scanning, incrementing |--outfile| or adding pdf pages
--q,--quality PERCENT	jpg conversion quality (%, default 75)
--r,--rotate DEGREES	rotate |DEGREES| degrees clockwise (0, 90, 180 or 270 only)
--v,--verbose		be verbose
--i,--interactive	print interactively
--h,--help		print this help
--e,--examples		show some examples of use
+-m,--multi	
+	keep scanning, incrementing |--outfile| or adding pdf pages
+-q,--quality=PERCENT	
+	jpg conversion quality (%, default 75)
+-r,--rotate=DEGREES	
+	rotate |DEGREES| degrees clockwise (0, 90, 180 or 270 only)
+-v,--verbose	
+	be verbose
+-i,--interactive	
+	print interactively
+-h,--help	
+	print this help
+-e,--examples	
+	show some examples of use
 
 = Author and copyright
 Author	Wybo Dekker
@@ -311,7 +335,7 @@ OptionParser.new do |opt|
                    raise(RuntimeError,"Unknown image type #{v}")
              end
 
-    opt.on('-n','--n COPIES', Integer,
+    opt.on('-n','--number COPIES', Integer,
                 'make COPIES copies, if printing (default: 1)'
           ) do |v| op.n = v end
 

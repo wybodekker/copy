@@ -4,7 +4,7 @@
    type:| ruby
  author:| Wybo Dekker
   email:| wybo@dekkerdocumenten.nl
-version:| 1.03
+version:| 1.04
 license:| Released under the GNU General Public License
 
 copy scans an image, or multiple images, and either prints those, or generates
