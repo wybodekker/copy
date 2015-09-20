@@ -153,6 +153,7 @@ def sys(command)
 end
 
 def scan(op,dir,file)
+   file =~ /^\// or file = "#{dir}/#{file}"
    command = <<-EOF
       scanimage \
       --device=#{op.device.device} \
@@ -162,20 +163,20 @@ def scan(op,dir,file)
       -l #{op.left} \
       -t #{op.top} \
       -x #{op.x} \
-      -y #{op.y} >#{dir}/#{file}.ppm
+      -y #{op.y} >#{file}.ppm
    EOF
    puts command if op.verbose
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
    sys command
-   sys("exiftool -comment='' -overwrite_original_in_place  #{dir}/#{file}.ppm >/dev/null")
+   sys("exiftool -comment='' -overwrite_original_in_place  #{file}.ppm >/dev/null")
    flags = "-rotate #{op.rotate}"
    unless op.imagetype == 'ppm'
       sys <<-EOF
            convert -quality #{op.quality} \
 		   -density #{op.density} \
                    -brightness-contrast #{op.brightness} \
-                   #{dir}/#{file}.ppm #{flags} #{dir}/#{file}.#{op.imagetype}
-           rm #{dir}/#{file}.ppm
+                   #{file}.ppm #{flags} #{file}.#{op.imagetype}
+           rm #{file}.ppm
       EOF
    end
 end
