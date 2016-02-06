@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='1.04'
+Version='1.05'
 MYNAME = 'copy'
 
 <<'DOC'
@@ -122,7 +122,19 @@ DEVICES = [
       :xdpi    => [100,150,200,240,300,400,600],
       :ydpi    => [100,150,200,240,300,400,600],
       :hasxy   => false
-   )
+   ),
+   OpenStruct.new(
+      :device  => 'hpaio',
+      :name    => 'HP Photosmart C4500',
+      :Lineart => 'Binary',
+      :Gray    => 'Gray',
+      :Color   => 'Color',
+      :xmax    => 215.9,
+      :ymax    => 297.18,
+      :xdpi    => [100,200,300,400,600,800,1200,2400,4800],
+      :ydpi    => [100,200,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
+      :hasxy   => true
+   ),
 ] 
 
 module FileTest
