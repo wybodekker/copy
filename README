@@ -5,7 +5,7 @@
  author:| Wybo Dekker
   email:| wybo@dekkerdocumenten.nl
 version:| 1.05
-license:| Released under the GNU General Public License
+license:| GNU General Public License
 
 copy scans an image, or multiple images, and either prints those, or generates
 one or more images files, or a PDF file with one or more images, one per page.
