@@ -38,7 +38,6 @@ Brightness, Contrast, density options:
 	set contrast correction to |PCT| percent (default: 0)
 -d,--density=INT	
 	set contrast correction to |INT| dpi (default: 300)
-	
 Color mode options:
 -C,--color		
 	Color mode (the default)
@@ -160,8 +159,21 @@ module FileTest
    end
 end # FileTest
 
+def die(m)
+   STDERR.puts "[38;5;9m#{MYNAME}: #{m}"
+   exit 1
+end
+
+def warn(m)
+   Warn(m) if ::VERBOSE
+end
+
+def Warn(m)
+   STDERR.puts "[38;5;5m#{MYNAME}: #{m}"
+end
+
 def sys(command)
-   puts command.strip.squeeze('a ') if ::VERBOSE
+   warn(command.strip.squeeze('a '))
    system command or exit(1)
 end
 
@@ -176,9 +188,9 @@ def scan(op,dir,file)
       -l #{op.left} \
       -t #{op.top} \
       -x #{op.x} \
-      -y #{op.y} >#{file}.ppm
+      -y #{op.y} >#{file}.ppm 2>/dev/null
    EOF
-   puts command if op.verbose
+   warn(command)
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
    sys command
    sys("exiftool -comment='' -overwrite_original_in_place  #{file}.ppm >/dev/null")
@@ -188,6 +200,7 @@ def scan(op,dir,file)
            convert -quality #{op.quality} \
 		   -density #{op.density} \
                    -brightness-contrast #{op.brightness} \
+		   -comment '' \
                    #{file}.ppm #{flags} #{file}.#{op.imagetype}
            rm #{file}.ppm
       EOF
@@ -345,8 +358,8 @@ OptionParser.new do |opt|
     opt.on(     '--imagetype=STRING',String,
                'set image type to STRING'
           )  do |v| op.imagetype = v
-                v =~/^(png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
-                   raise(RuntimeError,"Unknown image type #{v}")
+                v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
+                   die("Unknown image type #{v}")
              end
 
     opt.on('-n','--number COPIES', Integer,
@@ -368,8 +381,7 @@ OptionParser.new do |opt|
           ) do |v|
               v = v.to_i
               unless [0,90,180,270].include?(v)
-                puts "--rotate option argument must be 0, 90, 180, or 270"
-                exit 1
+                die("--rotate option argument must be 0, 90, 180, or 270")
               end
               op.rotate = v
             end
@@ -409,7 +421,7 @@ OptionParser.new do |opt|
     opt.on('-I') do system("instscript --markdown #{MYNAME}"); exit; end
 end.parse!
 
-ARGV.size >0 and raise(ArgumentError,"Unexpected arguments: #{ARGV}\n",'copy')
+ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
 WORKDIR = Dir.getwd
 FileTest.missing('scanimage','convert')
 VERBOSE = op.verbose
