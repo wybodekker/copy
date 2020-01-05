@@ -418,7 +418,11 @@ OptionParser.new do |opt|
             EOD
             exit(0)
             end
-    opt.on('-I') do system("instscript --markdown #{MYNAME}"); exit; end
+    opt.on('-I') do
+	       system("instscript #{MYNAME}") or
+	          die 'the -I option is for developers only'
+	       exit
+	    end
 end.parse!
 
 ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
