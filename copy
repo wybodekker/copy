@@ -1,0 +1,572 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+Version='2.00'
+MYNAME = 'copy'
+
+require 'optparse'
+require 'ostruct'
+require 'mkmf'
+
+# todo:	remove extension before adding one
+#	suppress message "scanimage: rounded value of"
+#	replace unavailable density with next higher one silently
+#	default output 1, 2, ...
+#	warn for existing output file
+
+Help=
+<<'DOC'
+= copy - copy from scanner to pdf or image file(s)
+
+= Synopsis
+copy [options]	
+
+= Description
+copy, without any options or arguments, scans an image on the first
+available device, at maximum size, and produces a one page PDF, named |copy.pdf|,
+unless you use the |--outfile=X| option to change the name to |X.pdf|..
+With the |--number| option, a multi-page pdf document can be produced.
+
+Instead of pdf, you can scan to one or more image files with the
+|--imagetype| option. Again, these are saved in the file which you specified
+with the |--outfile=X| option, where |X| is |copy| by default.
+If you use the |--number| option, this file name will be extended with |1|
+for the first scan, |2| for the second, and so on.
+With the |--start| option, numbering can be started with an other number than 1.
+ 
+Many options are available to influence brightness, contrast, pixel density, 
+color mode, image quality, rotation, page position and size, and more.
+See the Options section for more information.
+
+= Configuration
+copy needs one or more scan devices and it needs to know their properties.
+It reads that information from a configuration file. Copy looks at three
+places for that file, and uses the first available:
+   1. ./copy.conf
+   2. ~/.copy.conf
+   3. $PREFIX/copy.conf where PREFIX is an environment variable
+
+You need to create this configuration file, using the documentation of your
+scanners. Or, your system provides the |scanimage| program, using it with
+the |-L|, |-A|, and |--source| options. Here is an example, which has two
+entries, both for the Epson V350 scanner, the first in flatbed mode, the
+second in transparency mode:
+
+   PDFVIEWER=ENV['PDFVIEWER'] || 'evince'
+   IMGVIEWER=ENV['IMGVIEWER'] || 'xv'
+   DEVICES = [
+      OpenStruct.new(
+         :device  => 'epkowa',
+         :name    => 'Epson V350 Flatbed',
+         :source  => 'Flatbed',
+         :Lineart => 'Binary',
+         :Gray    => 'Gray',
+         :Color   => 'Color',
+         :xmax    => 215.9,
+         :ymax    => 297.18,
+         :xdpi    => [100,200,300,400,600,800,1200,2400,4800],
+         :ydpi    => [100,200,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
+         :hasxy   => true
+      ),
+      OpenStruct.new(
+         :device  => 'epkowa',
+         :name    => 'Epson V350 Transparency',
+         :source  => 'Transparency',
+         :posneg  => ['Positive','Negative'],
+         :Lineart => 'Binary',
+         :Gray    => 'Gray',
+         :Color   => 'Color',
+         :xmax    => 36.83,
+         :ymax    => 122.17,
+         :xdpi    => [300,600,1200,2400,4800],
+         :ydpi    => [100,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
+         :hasxy   => true
+      ),
+   ]
+
+= Options
+
+== General options
+-h			print this help and exit
+-H, --help		show full documentation (use less!) and exit
+-V, --version		print version and exit
+-v, --verbose		be verbose
+
+== Device options
+-1			set the scan device nr to 1 (or 2..9)
+			the default is 0 (Epson Perfection V350)
+    --list		List all devices
+
+== Brightness,Contrast,density options
+-b, --brightness=PCT	set brightness correction to PCT percent
+			 (default: 0)
+-c, --contrast=PCT	set contrast correction to PCT percent (default: 0)
+-d, --density=INT	set contrast correction to INT dpi (default: 300)
+
+== Color mode options
+-C, --color		Color mode (the default)
+-G, --gray		Gray instead of Color mode
+-L, --lineart		Lineart instead of Color mode
+
+== Positioning options
+-l, --left=MM		set left offset to MM mm (default: 0)
+-t, --top=MM		set top offset to MM mm (default: 0)
+-x, --x=MM		set width to MM mm (default: 215.9)
+-y, --y=MM		set height to MM mm (default: 297.18)
+-A, --A=n		set page size to A0..A8
+-B, --cd-back		back of jewelbox
+-F, --cd-front		front of jewelbox
+-D, --cd-disk		CD-disk
+
+== Output options
+-o, --outfile=STR	set output filename to STR (default: copy)
+-i, --imagetype=STR	set image type to STR; default: pdf
+
+== Conversion & Interaction options
+-s, --start=INT		Starting number for multiple output files (default: 1)
+-n, --number=INT	Number of scans to make (1 or more, default: 1)
+-q, --quality=PCT	jpg conversion quality (%,default 75)
+-r, --rotate=INT	rotate INT degrees clockwise
+-e, --examples		show some examples of use
+
+= Author
+[Wybo Dekker](wybo@dekkerdocumenten.nl)
+
+= Copyright
+Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
+DOC
+
+def die(m)
+   STDERR.puts "[38;5;1m#{MYNAME}: #{m}"
+   exit 1
+end
+
+def warn(m)
+   Warn(m) if $op.verbose
+end
+
+def Warn(m)
+   STDERR.puts "[38;5;5m#{MYNAME}: #{m}"
+end
+
+def findex(*f)
+   missing=[]
+   f.each do |v|
+        find_executable0(v) or missing.push(v)
+   end
+   die("Missing executables: #{missing}") if missing.size > 0
+end
+
+def setdev(n)
+   $op.device == DEVICES[0] or die "you can set the scan device only once"
+   n.between?(1,DEVICES.size-1) or
+      die "the device number must be between 0 and #{DEVICES.size-1}, not #{n}"
+   d = DEVICES[n]
+   $op.device = d
+   $op.name   = d.name
+   $op.x      = d.xmax
+   $op.y      = d.ymax
+   $op.mode   = d.Color
+   $op.xmax   = d.xmax
+   $op.ymax   = d.ymax
+   $op.source = d.source or nil
+end
+
+def find_devices
+   # Read DEVICES and PDFVIEWER from the config file
+   ['./copy.conf',
+    '~/.copy.conf',
+    ENV['PREFIX']+'/copy.conf'].each do |c|
+       if File.exist?(c)
+          load c
+          break
+       end
+   end
+   defined? DEVICES or die "Found no configuration file"
+   
+   # The scanners now have a name (DEVICE[n].name), but no device
+   # (DEVICE[n].device).
+   # We cannot store the device names, because these change when as
+   # scanner is removed from the system and the put back. 
+   # Let scanimage find the current device name from the scanners name.
+   # Note that this may take a long time depending on the entries in
+   # /etc/sane.d/dll.conf.
+   # If you have /etc/sane.d/dll.d/iscan, you can also put the active
+   # entries there and uncomment all entries in dll.conf.
+   # In the .conf file corresponding to the active entries, remove all 
+   # irrelevant devices; for example, remove scsi entries if you have no
+   # scsi.
+   # For example, in my system, with all entries
+   # uncommented, it takes 37 seconds; after commenting out all entries not
+   # reported by scanimage -L, it takes 0.34 seconds.
+   
+   t = Time.now
+   p="'" + `scanimage -f "%v %m#%d|"`.
+      chop.gsub(/#/,"' => '").
+      gsub(/\|/,"','") + "'"
+   dev = {} 
+   eval "dev = {#{p}}" 
+   DEVICES.each do |d| 
+      d.device = dev[d.name] or die "#{d.name} is not an existing device"
+   end
+   if Time.now - t > 1
+      Warn "You should probably comment out all entries in"
+      Warn "/etc/sane.d/dll.conf except:"
+      puts dev.values.map {|v| "\t"+v.sub(/:.*/,'') }.uniq
+      sleep(2)
+   end
+end
+
+def handle_options
+   ARGV.options do |opts|
+      # check that any device option is first argument:
+      opts.default_argv.size > 0 and
+      opts.default_argv[1..-1].map do |x|
+         x.match(/^-[1-9]/) and
+            die "Device options -1..-9 must be first argument"
+      end
+   
+      opts.banner =  "This is copy version #{Version}: "
+      opts.banner << "copy from scanner to pdf or image(s)\n\n"
+      opts.banner << "Usage: #{MYNAME} [-1..9]  [other options]\n\n"
+      opts.banner << "With --outfile=S, JPEG images are generated\n"
+      opts.banner << "Without --outfile, a (multipage) pdf is produced which,\n"
+      opts.banner << "   with --multi, can interactively be printed"
+      opts.separator ""
+      opts.summary_width=23 # 3x8-1
+      opts.summary_indent=''
+   
+      opts.separator "== General options"
+      opts.on('-h','print this help and exit') do
+         puts opts.to_a.delete_if { |x| x =~ /—$/ }
+         exit
+      end
+   
+      opts.on('-H','--help','show full documentation (use less!) and exit') do
+         puts Help
+         exit
+      end
+   
+      opts.on('-V','--version','print version and exit') do
+         puts Version
+         exit
+      end
+   
+      opts.on('-v','--verbose','be verbose') do
+         $op.verbose = true
+      end
+   
+      opts.separator "\n== Device options"
+      opts.on('-1',	'set the scan device nr to 1 (or 2..9)',
+			"the default is 0 (#{$op.name})"
+      ) do
+         setdev(1)
+      end
+      opts.on('-2','—') do setdev(2) end
+      opts.on('-3','—') do setdev(3) end
+      opts.on('-4','—') do setdev(4) end
+      opts.on('-5','—') do setdev(5) end
+      opts.on('-6','—') do setdev(6) end
+      opts.on('-7','—') do setdev(7) end
+      opts.on('-8','—') do setdev(8) end
+      opts.on('-9','—') do setdev(9) end
+   
+      opts.on('--list','List all devices') do 
+         (0...DEVICES.size).each do |i|
+            printf "%i %s %s\n",i,DEVICES[i].name,DEVICES[i].source
+         end
+         exit
+      end
+   
+      opts.separator "\n== Brightness,Contrast,density options"
+   
+      opts.on('-b','--brightness=PCT',Integer,
+              'set brightness correction to PCT percent',
+              " (default: #{$op.brightness})"
+      ) do |v|
+         v.between?(-100,100) or
+            die "brightness must be between -100 and 100"
+         $op.brightness = v
+      end
+   
+      opts.on('-c','--contrast=PCT',Integer,
+         "set contrast correction to PCT percent (default: #{$op.contrast})"
+      ) do |v|
+         v.between?(-100,100) or
+            die "contrast must be between -100 and 100"
+         $op.contrast = v
+      end
+   
+      opts.on('-d','--density=INT',Integer,
+         "set contrast correction to INT dpi (default: #{$op.density})"
+      ) do |v|
+         $op.device.xdpi.include?(v) or
+            die("density must be in #{$op.device.xdpi.inspect} dpi")
+         $op.density = v
+      end
+   
+      opts.separator "\n== Color mode options"
+   
+      opts.on('-C','--color','Color mode (the default)') do
+         $op.mode = $op.device.Color
+      end
+   
+      opts.on('-G','--gray','Gray instead of Color mode') do
+         $op.mode = $op.device.Gray
+      end
+   
+      opts.on('-L','--lineart','Lineart instead of Color mode') do
+         $op.mode = $op.device.Lineart
+      end
+   
+      opts.separator "\n== Positioning options"
+   
+      opts.on('-l','--left=MM',Integer,
+              "set left offset to MM mm (default: #{$op.left})"
+      ) do |v|
+         $op.left = v
+      end
+   
+      opts.on('-t','--top=MM',Integer,
+              "set top offset to MM mm (default: #{$op.top})"
+      ) do |v|
+         $op.top = v
+      end
+   
+      opts.on('-x','--x=MM',Integer,
+              "set width to MM mm (default: #{$op.x})"
+      ) do |v|
+         $op.x = [v,$op.xmax].min
+      end
+   
+      opts.on('-y','--y=MM',Integer,
+              "set height to MM mm (default: #{$op.y})"
+      ) do |v|
+         $op.y = [v,$op.ymax].min
+      end
+   
+      opts.on('-A','--A=n',Integer,
+              "set page size to A0..A8"
+      ) do |v|
+         v.between?(0,8) or die "page size must be between 0 and 8"
+         w=(0..8).map {|x| (841/1.41412**x+0.5).to_i }
+         h=(0..8).map {|y| (1189/1.41412**y+0.5).to_i }
+         $op.x = [w[v],$op.xmax].min
+         $op.y = [h[v],$op.ymax].min
+      end
+   
+      opts.on('-B','--cd-back','back of jewelbox') do
+         $op.x = 137;
+         $op.y = 117;
+         $op.top = 3;a.delete_if { |x| x =~ /—$/}
+         $op.left = 3;
+         $op.outfile = 'back';
+         $op.mode = $op.device.Color
+      end
+   
+      opts.on('-F','--cd-front','front of jewelbox') do
+         $op.x = 119;
+         $op.y = 117;
+         $op.top = 3;
+         $op.left = 17;
+         $op.outfile = 'front';
+         $op.mode = $op.device.Color
+      end
+   
+      opts.on('-D','--cd-disk','CD-disk') do
+         $op.x = 120;
+         $op.y = 120;
+         $op.top = 0;
+         $op.left = 0;
+         $op.outfile = 'disk';
+         $op.mode = $op.device.Color
+      end
+   
+      opts.separator "\n== Output options"
+   
+      opts.on('-o','--outfile=STR',String,
+              'set output filename to STR (default: copy)'
+      )  do |v|
+         b=v.split('/')[-1]
+	 if b != v # slash found?
+            $op.outpath = v.sub(/(.*)\/.*/,'\1')
+	 end
+         $op.outfile = b
+      end
+   
+      opts.on('-i','--imagetype=STR',String,
+         'set image type to STR; default: pdf')  do |v|
+         $op.imagetype = v
+         v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
+            die("Unknown image type #{v}")
+      end
+   
+      opts.separator "\n== Conversion & Interaction options"
+   
+      opts.on('-s','--start=INT',Integer,
+              'Starting number for multiple output files (default: 1)'
+      ) do |v|
+         $op.start = v
+      end
+   
+      opts.on('-n','--number=INT',Integer,
+              'Number of sheets to scans (1 or more, default: 1)'
+      ) do |v|
+         $op.number = v
+      end
+   
+      opts.on('-q','--quality=PCT',Integer,
+              "jpg conversion quality (%,default #{$op.quality})"
+      ) do |v|
+         $op.quality = v
+      end
+   
+      opts.on('-r','--rotate=INT',Integer,'rotate INT degrees clockwise') do |v|
+         v = v.to_i
+         unless [0,90,180,270].include?(v)
+           die("--rotate option argument must be 0,90,180,or 270")
+         end
+         $op.rotate = v
+      end
+   
+      opts.on('-e','--examples','show some examples of use') do
+         puts <<-EOD
+	 copy a page to the printer:
+	    copy
+	 copy multiple pages in gray mode and view the result:
+	    copy -Gm
+	 create serveral colored JPEG images in testnn.jpg:
+	    copy -Cmo test
+	 EOD
+         exit
+      end
+   
+      opts.on('-I','—') do
+         system("instscript #{MYNAME}") or
+            die 'the -I option is for developers only'
+         exit
+      end
+
+      opts.parse!
+   end or exit 1
+end
+
+def sys(command)
+   warn(command.strip.squeeze(' '))
+   system(command) or die "system call #{command} failed"
+end
+
+def scan(dir,file,number)
+   file =~ /^\// or file = "#{dir}/#{file}"
+   command = <<-EOF.strip.gsub(/ +/,' ')
+        scanimage \
+        --device=#{$op.device.device} \
+        #{$op.source.nil? ? nil : '--source='+$op.source.gsub(/ /,'\\ ')} \
+        #{$op.film.nil? ? nil : '--film-type='+$op.film.gsub(/ /,'\\ ')} \
+        --#{$op.device.hasxy ? 'x-' : ''}resolution #{$op.density} \
+        --#{$op.device.hasxy ? 'y-' : ''}resolution #{$op.density} \
+        --mode #{$op.mode} \
+        -l #{$op.left} \
+        -t #{$op.top} \
+        -x #{$op.x} \
+        -y #{$op.y} \
+	--batch-start #{$op.start} \
+	--batch-count #{$op.number} \
+	--batch=#{file}.ppm 2>/dev/null
+        EOF
+   sys(command) # scan all 
+   sys <<-EOF
+	for i in #{dir}/*.ppm; do
+	   exiftool -comment='' -overwrite_original_in_place $i >/dev/null
+	   convert -quality #{$op.quality} \
+		-density #{$op.density} \
+		-brightness-contrast #{$op.brightness} \
+		-comment '' \
+		$i -rotate #{$op.rotate} ${i%.ppm}.#{$op.imagetype}
+	   rm $i
+        done
+   EOF
+end
+
+find_devices
+
+# defaults:
+$op = OpenStruct.new(
+  :brightness  => 0,
+  :contrast    => 0,
+  :density     => 300,
+  :device      => DEVICES[0],
+  :imagetype   => 'pdf',
+  :left        => 0,
+  :mode        => DEVICES[0].Color,
+  :name        => DEVICES[0].name,
+  :number      => 1,
+  :outpath     => ENV['PWD'],
+  :outfile     => 'copy',
+  :quality     => 75,
+  :rotate      => 0,
+  :start       => 1,
+  :top         => 0,
+  :verbose     => false,
+  :x           => DEVICES[0].xmax,
+  :xmax        => DEVICES[0].xmax,
+  :y           => DEVICES[0].ymax,
+  :ymax        => DEVICES[0].ymax,
+)
+
+handle_options
+
+ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
+findex('scanimage','convert','pdflatex',PDFVIEWER)
+if $op.imagetype=='pdf'
+   $op.imagetype='jpg'
+   pdf=true
+end
+
+# create files in temporary directory:
+file=$op.outfile
+dir = "/tmp/#{MYNAME}-#{$$}"
+Dir.mkdir(dir)
+[0,1,2,15].each do |s|
+   Signal.trap(s) do
+      unless s == 1
+         Dir["#{dir}/*"].each { |d| File.unlink(d) }
+         Dir.rmdir(dir)
+      end
+   end
+end
+
+$op.number*=2 if $op.device.dup
+file+="%0#{($op.start+$op.number-1).to_s.size}d" if $op.number > 1
+
+warn "scan(#{dir},#{file},#{$op.number})"
+scan(dir,file,$op.number)
+
+if pdf
+   w,h =  $op.x,$op.y
+   w,h =  h,w if [90,270].include?($op.rotate)
+
+   tex = open("#{dir}/main.tex",'w')
+   tex.print <<-EOF
+   \\documentclass{article}
+   \\usepackage[margin=0pt,paperwidth=#{w}mm,paperheight=#{h}mm]{geometry}
+   \\parindent0pt\\parskip0pt
+   \\usepackage{graphicx}
+   \\pagestyle{empty}
+   \\begin{document}
+   EOF
+
+   Dir["#{dir}/*."+$op.imagetype].sort.each { |f|
+      tex.puts "\\includegraphics[height=.999\\paperheight,width=.999\\paperwidth]{#{f}}\\eject"
+   }
+   tex.puts '\end{document}'
+   tex.close
+   sys("pdflatex --output-directory=#{dir} #{dir}/main >/dev/null")
+   if $op.outfile
+      sys("mv #{dir}/main.pdf #{$op.outpath}/#{$op.outfile}.pdf")
+   else
+      sys("#{PDFVIEWER} #{dir}/main.pdf")
+   end
+else
+   sys("mv #{dir}/*.#{$op.imagetype} .")
+end
