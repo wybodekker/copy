@@ -2,11 +2,12 @@
 # encoding: utf-8
 
 Version='2.00'
-MYNAME = 'copy'
+Myname = 'copy'
 
 require 'optparse'
 require 'ostruct'
 require 'mkmf'
+require 'colorize'
 
 # todo:	remove extension before adding one
 #	suppress message "scanimage: rounded value of"
@@ -88,7 +89,7 @@ second in transparency mode:
 
 == General options
 -h			print this help and exit
--H, --help		show full documentation (use less!) and exit
+-H, --help		show full documentation via less and exit
 -V, --version		print version and exit
 -v, --verbose		be verbose
 
@@ -136,17 +137,21 @@ second in transparency mode:
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
-def die(m)
-   STDERR.puts "[38;5;1m#{MYNAME}: #{m}"
-   exit 1
+def warn(*m) mess :magenta,*m if $o.verbose; end
+def Warn(*m) mess :magenta,*m; end
+def die(*m) mess :red,*m; exit 1; end
+
+# print colored string(s), 1 line per argument
+def mess(color,*m)
+   name = Myname + ': '
+   m.each do |v|
+      STDERR.puts "#{name}#{v}".__send__(color)
+      name.gsub!(/./,' ')
+   end
 end
 
-def warn(m)
-   Warn(m) if $op.verbose
-end
-
-def Warn(m)
-   STDERR.puts "[38;5;5m#{MYNAME}: #{m}"
+def help
+  system("echo \"#{Help}\" | less -P#{Myname}-#{Version.tr('.','·')}")
 end
 
 def findex(*f)
@@ -158,18 +163,18 @@ def findex(*f)
 end
 
 def setdev(n)
-   $op.device == DEVICES[0] or die "you can set the scan device only once"
+   $o.device == DEVICES[0] or die "you can set the scan device only once"
    n.between?(1,DEVICES.size-1) or
       die "the device number must be between 0 and #{DEVICES.size-1}, not #{n}"
    d = DEVICES[n]
-   $op.device = d
-   $op.name   = d.name
-   $op.x      = d.xmax
-   $op.y      = d.ymax
-   $op.mode   = d.Color
-   $op.xmax   = d.xmax
-   $op.ymax   = d.ymax
-   $op.source = d.source or nil
+   $o.device = d
+   $o.name   = d.name
+   $o.x      = d.xmax
+   $o.y      = d.ymax
+   $o.mode   = d.Color
+   $o.xmax   = d.xmax
+   $o.ymax   = d.ymax
+   $o.source = d.source or nil
 end
 
 def find_devices
@@ -217,240 +222,6 @@ def find_devices
    end
 end
 
-def handle_options
-   ARGV.options do |opts|
-      # check that any device option is first argument:
-      opts.default_argv.size > 0 and
-      opts.default_argv[1..-1].map do |x|
-         x.match(/^-[1-9]/) and
-            die "Device options -1..-9 must be first argument"
-      end
-   
-      opts.banner =  "This is copy version #{Version}: "
-      opts.banner << "copy from scanner to pdf or image(s)\n\n"
-      opts.banner << "Usage: #{MYNAME} [-1..9]  [other options]\n\n"
-      opts.banner << "With --outfile=S, JPEG images are generated\n"
-      opts.banner << "Without --outfile, a (multipage) pdf is produced which,\n"
-      opts.banner << "   with --multi, can interactively be printed"
-      opts.separator ""
-      opts.summary_width=23 # 3x8-1
-      opts.summary_indent=''
-   
-      opts.separator "== General options"
-      opts.on('-h','print this help and exit') do
-         puts opts.to_a.delete_if { |x| x =~ /—$/ }
-         exit
-      end
-   
-      opts.on('-H','--help','show full documentation (use less!) and exit') do
-         puts Help
-         exit
-      end
-   
-      opts.on('-V','--version','print version and exit') do
-         puts Version
-         exit
-      end
-   
-      opts.on('-v','--verbose','be verbose') do
-         $op.verbose = true
-      end
-   
-      opts.separator "\n== Device options"
-      opts.on('-1',	'set the scan device nr to 1 (or 2..9)',
-			"the default is 0 (#{$op.name})"
-      ) do
-         setdev(1)
-      end
-      opts.on('-2','—') do setdev(2) end
-      opts.on('-3','—') do setdev(3) end
-      opts.on('-4','—') do setdev(4) end
-      opts.on('-5','—') do setdev(5) end
-      opts.on('-6','—') do setdev(6) end
-      opts.on('-7','—') do setdev(7) end
-      opts.on('-8','—') do setdev(8) end
-      opts.on('-9','—') do setdev(9) end
-   
-      opts.on('--list','List all devices') do 
-         (0...DEVICES.size).each do |i|
-            printf "%i %s %s\n",i,DEVICES[i].name,DEVICES[i].source
-         end
-         exit
-      end
-   
-      opts.separator "\n== Brightness,Contrast,density options"
-   
-      opts.on('-b','--brightness=PCT',Integer,
-              'set brightness correction to PCT percent',
-              " (default: #{$op.brightness})"
-      ) do |v|
-         v.between?(-100,100) or
-            die "brightness must be between -100 and 100"
-         $op.brightness = v
-      end
-   
-      opts.on('-c','--contrast=PCT',Integer,
-         "set contrast correction to PCT percent (default: #{$op.contrast})"
-      ) do |v|
-         v.between?(-100,100) or
-            die "contrast must be between -100 and 100"
-         $op.contrast = v
-      end
-   
-      opts.on('-d','--density=INT',Integer,
-         "set contrast correction to INT dpi (default: #{$op.density})"
-      ) do |v|
-         $op.device.xdpi.include?(v) or
-            die("density must be in #{$op.device.xdpi.inspect} dpi")
-         $op.density = v
-      end
-   
-      opts.separator "\n== Color mode options"
-   
-      opts.on('-C','--color','Color mode (the default)') do
-         $op.mode = $op.device.Color
-      end
-   
-      opts.on('-G','--gray','Gray instead of Color mode') do
-         $op.mode = $op.device.Gray
-      end
-   
-      opts.on('-L','--lineart','Lineart instead of Color mode') do
-         $op.mode = $op.device.Lineart
-      end
-   
-      opts.separator "\n== Positioning options"
-   
-      opts.on('-l','--left=MM',Integer,
-              "set left offset to MM mm (default: #{$op.left})"
-      ) do |v|
-         $op.left = v
-      end
-   
-      opts.on('-t','--top=MM',Integer,
-              "set top offset to MM mm (default: #{$op.top})"
-      ) do |v|
-         $op.top = v
-      end
-   
-      opts.on('-x','--x=MM',Integer,
-              "set width to MM mm (default: #{$op.x})"
-      ) do |v|
-         $op.x = [v,$op.xmax].min
-      end
-   
-      opts.on('-y','--y=MM',Integer,
-              "set height to MM mm (default: #{$op.y})"
-      ) do |v|
-         $op.y = [v,$op.ymax].min
-      end
-   
-      opts.on('-A','--A=n',Integer,
-              "set page size to A0..A8"
-      ) do |v|
-         v.between?(0,8) or die "page size must be between 0 and 8"
-         w=(0..8).map {|x| (841/1.41412**x+0.5).to_i }
-         h=(0..8).map {|y| (1189/1.41412**y+0.5).to_i }
-         $op.x = [w[v],$op.xmax].min
-         $op.y = [h[v],$op.ymax].min
-      end
-   
-      opts.on('-B','--cd-back','back of jewelbox') do
-         $op.x = 137;
-         $op.y = 117;
-         $op.top = 3;a.delete_if { |x| x =~ /—$/}
-         $op.left = 3;
-         $op.outfile = 'back';
-         $op.mode = $op.device.Color
-      end
-   
-      opts.on('-F','--cd-front','front of jewelbox') do
-         $op.x = 119;
-         $op.y = 117;
-         $op.top = 3;
-         $op.left = 17;
-         $op.outfile = 'front';
-         $op.mode = $op.device.Color
-      end
-   
-      opts.on('-D','--cd-disk','CD-disk') do
-         $op.x = 120;
-         $op.y = 120;
-         $op.top = 0;
-         $op.left = 0;
-         $op.outfile = 'disk';
-         $op.mode = $op.device.Color
-      end
-   
-      opts.separator "\n== Output options"
-   
-      opts.on('-o','--outfile=STR',String,
-              'set output filename to STR (default: copy)'
-      )  do |v|
-         b=v.split('/')[-1]
-	 if b != v # slash found?
-            $op.outpath = v.sub(/(.*)\/.*/,'\1')
-	 end
-         $op.outfile = b
-      end
-   
-      opts.on('-i','--imagetype=STR',String,
-         'set image type to STR; default: pdf')  do |v|
-         $op.imagetype = v
-         v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
-            die("Unknown image type #{v}")
-      end
-   
-      opts.separator "\n== Conversion & Interaction options"
-   
-      opts.on('-s','--start=INT',Integer,
-              'Starting number for multiple output files (default: 1)'
-      ) do |v|
-         $op.start = v
-      end
-   
-      opts.on('-n','--number=INT',Integer,
-              'Number of sheets to scans (1 or more, default: 1)'
-      ) do |v|
-         $op.number = v
-      end
-   
-      opts.on('-q','--quality=PCT',Integer,
-              "jpg conversion quality (%,default #{$op.quality})"
-      ) do |v|
-         $op.quality = v
-      end
-   
-      opts.on('-r','--rotate=INT',Integer,'rotate INT degrees clockwise') do |v|
-         v = v.to_i
-         unless [0,90,180,270].include?(v)
-           die("--rotate option argument must be 0,90,180,or 270")
-         end
-         $op.rotate = v
-      end
-   
-      opts.on('-e','--examples','show some examples of use') do
-         puts <<-EOD
-	 copy a page to the printer:
-	    copy
-	 copy multiple pages in gray mode and view the result:
-	    copy -Gm
-	 create serveral colored JPEG images in testnn.jpg:
-	    copy -Cmo test
-	 EOD
-         exit
-      end
-   
-      opts.on('-I','—') do
-         system("instscript #{MYNAME}") or
-            die 'the -I option is for developers only'
-         exit
-      end
-
-      opts.parse!
-   end or exit 1
-end
-
 def sys(command)
    warn(command.strip.squeeze(' '))
    system(command) or die "system call #{command} failed"
@@ -460,38 +231,38 @@ def scan(dir,file,number)
    file =~ /^\// or file = "#{dir}/#{file}"
    command = <<-EOF.strip.gsub(/ +/,' ')
         scanimage \
-        --device=#{$op.device.device} \
-        #{$op.source.nil? ? nil : '--source='+$op.source.gsub(/ /,'\\ ')} \
-        #{$op.film.nil? ? nil : '--film-type='+$op.film.gsub(/ /,'\\ ')} \
-        --#{$op.device.hasxy ? 'x-' : ''}resolution #{$op.density} \
-        --#{$op.device.hasxy ? 'y-' : ''}resolution #{$op.density} \
-        --mode #{$op.mode} \
-        -l #{$op.left} \
-        -t #{$op.top} \
-        -x #{$op.x} \
-        -y #{$op.y} \
-	--batch-start #{$op.start} \
-	--batch-count #{$op.number} \
-	--batch=#{file}.ppm 2>/dev/null
+        --device=#{$o.device.device} \
+        #{$o.source.nil? ? nil : '--source='+$o.source.gsub(/ /,'\\ ')} \
+        #{$o.film.nil? ? nil : '--film-type='+$o.film.gsub(/ /,'\\ ')} \
+        --#{$o.device.hasxy ? 'x-' : ''}resolution #{$o.density} \
+        --#{$o.device.hasxy ? 'y-' : ''}resolution #{$o.density} \
+        --mode #{$o.mode} \
+        -l #{$o.left} \
+        -t #{$o.top} \
+        -x #{$o.x} \
+        -y #{$o.y} \
+	--batch-start #{$o.start} \
+	--batch-count #{$o.number} \
+	--batch="#{file}.ppm" 2>/dev/null
         EOF
    sys(command) # scan all 
    sys <<-EOF
 	for i in #{dir}/*.ppm; do
-	   exiftool -comment='' -overwrite_original_in_place $i >/dev/null
-	   convert -quality #{$op.quality} \
-		-density #{$op.density} \
-		-brightness-contrast #{$op.brightness} \
+	   exiftool -comment='' -overwrite_original_in_place "$i" >/dev/null
+	   convert -quality #{$o.quality} \
+		-density #{$o.density} \
+		-brightness-contrast #{$o.brightness} \
 		-comment '' \
-		$i -rotate #{$op.rotate} ${i%.ppm}.#{$op.imagetype}
-	   rm $i
+		"$i" -rotate #{$o.rotate} "${i%.ppm}".#{$o.imagetype}
+	   rm "$i"
         done
    EOF
 end
 
 find_devices
 
-# defaults:
-$op = OpenStruct.new(
+# Option defaults:
+$o = OpenStruct.new(
   :brightness  => 0,
   :contrast    => 0,
   :density     => 300,
@@ -514,18 +285,251 @@ $op = OpenStruct.new(
   :ymax        => DEVICES[0].ymax,
 )
 
-handle_options
+OptionParser.new(
+   banner = <<~EOD,
+	This is copy version #{Version}:
+	copy from scanner to pdf or image(s)\n
+	Usage: #{Myname} [-1..9]  [other options]\n
+	With --outfile=S, JPEG images are generated
+	Without --outfile, a (multipage) pdf is produced which,
+	   with --multi, can interactively be printed\n
+	Options:
+	EOD
+   width = 23,
+   indent = ''
+) do |opts|
+
+   # check that any device option is first argument:
+   opts.default_argv.size > 0 and
+   opts.default_argv[1..-1].map do |x|
+      x.match(/^-[1-9]/) and
+         die "Device options -1..-9 must be first argument"
+   end
+
+   opts.separator "== General options"
+   opts.on('-h','print this help and exit') do
+      puts opts.to_a.delete_if { |x| x =~ /—$/ }
+      exit
+   end
+
+   opts.on('-H','--help','show full documentation via less and exit') do
+      help
+      exit
+   end
+
+   opts.on('-V','--version','print version and exit') do
+      puts Version
+      exit
+   end
+
+   opts.on('-v','--verbose','be verbose') do
+      $o.verbose = true
+   end
+
+   opts.separator "\n== Device options"
+   opts.on('-1',	'set the scan device nr to 1 (or 2..9)',
+     		"the default is 0 (#{$o.name})"
+   ) do
+      setdev(1)
+   end
+   opts.on('-2','—') do setdev(2) end
+   opts.on('-3','—') do setdev(3) end
+   opts.on('-4','—') do setdev(4) end
+   opts.on('-5','—') do setdev(5) end
+   opts.on('-6','—') do setdev(6) end
+   opts.on('-7','—') do setdev(7) end
+   opts.on('-8','—') do setdev(8) end
+   opts.on('-9','—') do setdev(9) end
+
+   opts.on('--list','List all devices') do 
+      (0...DEVICES.size).each do |i|
+         printf "%i %s %s\n",i,DEVICES[i].name,DEVICES[i].source
+      end
+      exit
+   end
+
+   opts.separator "\n== Brightness,Contrast,density options"
+
+   opts.on('-b','--brightness=PCT',Integer,
+           'set brightness correction to PCT percent',
+           " (default: #{$o.brightness})"
+   ) do |v|
+      v.between?(-100,100) or
+         die "brightness must be between -100 and 100"
+      $o.brightness = v
+   end
+
+   opts.on('-c','--contrast=PCT',Integer,
+      "set contrast correction to PCT percent (default: #{$o.contrast})"
+   ) do |v|
+      v.between?(-100,100) or
+         die "contrast must be between -100 and 100"
+      $o.contrast = v
+   end
+
+   opts.on('-d','--density=INT',Integer,
+      "set contrast correction to INT dpi (default: #{$o.density})"
+   ) do |v|
+      $o.device.xdpi.include?(v) or
+         die("density must be in #{$o.device.xdpi.inspect} dpi")
+      $o.density = v
+   end
+
+   opts.separator "\n== Color mode options"
+
+   opts.on('-C','--color','Color mode (the default)') do
+      $o.mode = $o.device.Color
+   end
+
+   opts.on('-G','--gray','Gray instead of Color mode') do
+      $o.mode = $o.device.Gray
+   end
+
+   opts.on('-L','--lineart','Lineart instead of Color mode') do
+      $o.mode = $o.device.Lineart
+   end
+
+   opts.separator "\n== Positioning options"
+
+   opts.on('-l','--left=MM',Integer,
+           "set left offset to MM mm (default: #{$o.left})"
+   ) do |v|
+      $o.left = v
+   end
+
+   opts.on('-t','--top=MM',Integer,
+           "set top offset to MM mm (default: #{$o.top})"
+   ) do |v|
+      $o.top = v
+   end
+
+   opts.on('-x','--x=MM',Integer,
+           "set width to MM mm (default: #{$o.x})"
+   ) do |v|
+      $o.x = [v,$o.xmax].min
+   end
+
+   opts.on('-y','--y=MM',Integer,
+           "set height to MM mm (default: #{$o.y})"
+   ) do |v|
+      $o.y = [v,$o.ymax].min
+   end
+
+   opts.on('-A','--A=n',Integer,
+           "set page size to A0..A8"
+   ) do |v|
+      v.between?(0,8) or die "page size must be between 0 and 8"
+      w=(0..8).map {|x| (841/1.41412**x+0.5).to_i }
+      h=(0..8).map {|y| (1189/1.41412**y+0.5).to_i }
+      $o.x = [w[v],$o.xmax].min
+      $o.y = [h[v],$o.ymax].min
+   end
+
+   opts.on('-B','--cd-back','back of jewelbox') do
+      $o.x = 137;
+      $o.y = 117;
+      $o.top = 3;a.delete_if { |x| x =~ /—$/}
+      $o.left = 3;
+      $o.outfile = 'back';
+      $o.mode = $o.device.Color
+   end
+
+   opts.on('-F','--cd-front','front of jewelbox') do
+      $o.x = 119;
+      $o.y = 117;
+      $o.top = 3;
+      $o.left = 17;
+      $o.outfile = 'front';
+      $o.mode = $o.device.Color
+   end
+
+   opts.on('-D','--cd-disk','CD-disk') do
+      $o.x = 120;
+      $o.y = 120;
+      $o.top = 0;
+      $o.left = 0;
+      $o.outfile = 'disk';
+      $o.mode = $o.device.Color
+   end
+
+   opts.separator "\n== Output options"
+
+   opts.on('-o','--outfile=STR',String,
+           'set output filename to STR (default: copy)'
+   )  do |v|
+      b=v.split('/')[-1]
+      if b != v # slash found?
+         $o.outpath = v.sub(/(.*)\/.*/,'\1')
+      end
+      $o.outfile = b
+   end
+
+   opts.on('-i','--imagetype=STR',String,
+      'set image type to STR; default: pdf')  do |v|
+      $o.imagetype = v
+      v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
+         die("Unknown image type #{v}")
+   end
+
+   opts.separator "\n== Conversion & Interaction options"
+
+   opts.on('-s','--start=INT',Integer,
+           'Starting number for multiple output files (default: 1)'
+   ) do |v|
+      $o.start = v
+   end
+
+   opts.on('-n','--number=INT',Integer,
+           'Number of sheets to scan (1 or more, default: 1)'
+   ) do |v|
+      $o.number = v
+   end
+
+   opts.on('-q','--quality=PCT',Integer,
+           "jpg conversion quality (%,default #{$o.quality})"
+   ) do |v|
+      $o.quality = v
+   end
+
+   opts.on('-r','--rotate=INT',Integer,'rotate INT degrees clockwise') do |v|
+      v = v.to_i
+      unless [0,90,180,270].include?(v)
+        die("--rotate option argument must be 0,90,180,or 270")
+      end
+      $o.rotate = v
+   end
+
+   opts.on('-e','--examples','show some examples of use') do
+      puts <<-EOD
+      copy a page to the printer:
+         copy
+      copy multiple pages in gray mode and view the result:
+         copy -Gm
+      create serveral colored JPEG images in testnn.jpg:
+         copy -Cmo test
+      EOD
+      exit
+   end
+
+   opts.on('-I','—') do
+      system("instscript #{Myname}") or
+         die 'the -I option is for developers only'
+      exit
+   end
+
+   opts.parse!
+end
 
 ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
 findex('scanimage','convert','pdflatex',PDFVIEWER)
-if $op.imagetype=='pdf'
-   $op.imagetype='jpg'
-   pdf=true
+if $o.imagetype == 'pdf'
+   $o.imagetype = 'jpg'
+   pdf = true
 end
 
 # create files in temporary directory:
-file=$op.outfile
-dir = "/tmp/#{MYNAME}-#{$$}"
+file = $o.outfile
+dir = "/tmp/#{Myname}-#{$$}"
 Dir.mkdir(dir)
 [0,1,2,15].each do |s|
    Signal.trap(s) do
@@ -536,37 +540,42 @@ Dir.mkdir(dir)
    end
 end
 
-$op.number*=2 if $op.device.dup
-file+="%0#{($op.start+$op.number-1).to_s.size}d" if $op.number > 1
+$o.number *= 2 if $o.device.dup
+file += "%0#{($o.start+$o.number-1).to_s.size}d" if $o.number > 1
 
-warn "scan(#{dir},#{file},#{$op.number})"
-scan(dir,file,$op.number)
+warn "scan(#{dir},#{file},#{$o.number})"
+scan(dir,file,$o.number)
 
 if pdf
-   w,h =  $op.x,$op.y
-   w,h =  h,w if [90,270].include?($op.rotate)
+   w,h = $o.x,$o.y
+   w,h = h,w if [90,270].include?($o.rotate)
 
    tex = open("#{dir}/main.tex",'w')
-   tex.print <<-EOF
-   \\documentclass{article}
-   \\usepackage[margin=0pt,paperwidth=#{w}mm,paperheight=#{h}mm]{geometry}
-   \\parindent0pt\\parskip0pt
-   \\usepackage{graphicx}
-   \\pagestyle{empty}
-   \\begin{document}
-   EOF
+   tex.print <<~'EOD' % [w,h]
+	\documentclass{article}
+	\usepackage[margin=0pt,paperwidth=%smm,paperheight=%smm]{geometry}
+	\parindent0pt\parskip0pt
+	\usepackage{graphicx}
+	\pagestyle{empty}
+	\begin{document}
+	EOD
 
-   Dir["#{dir}/*."+$op.imagetype].sort.each { |f|
-      tex.puts "\\includegraphics[height=.999\\paperheight,width=.999\\paperwidth]{#{f}}\\eject"
-   }
+   Dir["#{dir}/*."+$o.imagetype].sort.each do |f|
+      tex.puts <<~'EOD' % f
+	\includegraphics[height=.999
+	\paperheight,width=.999
+	\paperwidth]{%s}
+	\eject
+	EOD
+   end
    tex.puts '\end{document}'
    tex.close
    sys("pdflatex --output-directory=#{dir} #{dir}/main >/dev/null")
-   if $op.outfile
-      sys("mv #{dir}/main.pdf #{$op.outpath}/#{$op.outfile}.pdf")
+   if $o.outfile
+      sys("mv #{dir}/main.pdf #{$o.outpath}/#{$o.outfile}.pdf")
    else
       sys("#{PDFVIEWER} #{dir}/main.pdf")
    end
 else
-   sys("mv #{dir}/*.#{$op.imagetype} .")
+   sys("mv #{dir}/*.#{$o.imagetype} .")
 end
