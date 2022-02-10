@@ -67,7 +67,8 @@ second in transparency mode:
          :ymax    => 297.18,
          :xdpi    => [100,200,300,400,600,800,1200,2400,4800],
          :ydpi    => [100,200,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
-         :hasxy   => true
+         :hasxy   => TRUE,
+	 :Dup     => FALSE
       ),
       OpenStruct.new(
          :device  => 'epkowa',
@@ -81,7 +82,8 @@ second in transparency mode:
          :ymax    => 122.17,
          :xdpi    => [300,600,1200,2400,4800],
          :ydpi    => [100,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
-         :hasxy   => true
+         :hasxy   => TRUE,
+	 :Dup     => FALSE
       ),
    ]
 
@@ -177,6 +179,7 @@ def setdev(n)
    $o.source = d.source or nil
 end
 
+$cffile = ''
 def find_devices
    # Read DEVICES and PDFVIEWER from the config file
    ['./copy.conf',
@@ -184,6 +187,7 @@ def find_devices
     ENV['PREFIX']+'/copy.conf'].each do |c|
        if File.exist?(c)
           load c
+	  $cffile = c # remember for after option handling
           break
        end
    end
@@ -215,8 +219,8 @@ def find_devices
       d.device = dev[d.name] or die "#{d.name} is not an existing device"
    end
    if Time.now - t > 1
-      Warn "You should probably comment out all entries in"
-      Warn "/etc/sane.d/dll.conf except:"
+      Warn "You should probably comment out all entries in",
+ 	   "/etc/sane.d/dll.conf except:"
       puts dev.values.map {|v| "\t"+v.sub(/:.*/,'') }.uniq
       sleep(2)
    end
@@ -278,7 +282,7 @@ $o = OpenStruct.new(
   :rotate      => 0,
   :start       => 1,
   :top         => 0,
-  :verbose     => false,
+  :verbose     => FALSE,
   :x           => DEVICES[0].xmax,
   :xmax        => DEVICES[0].xmax,
   :y           => DEVICES[0].ymax,
@@ -323,7 +327,7 @@ OptionParser.new(
    end
 
    opts.on('-v','--verbose','be verbose') do
-      $o.verbose = true
+      $o.verbose = TRUE
    end
 
    opts.separator "\n== Device options"
@@ -520,11 +524,12 @@ OptionParser.new(
    opts.parse!
 end
 
+warn "Configuration file: #{$cffile || 'none'}"
 ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
 findex('scanimage','convert','pdflatex',PDFVIEWER)
 if $o.imagetype == 'pdf'
    $o.imagetype = 'jpg'
-   pdf = true
+   pdf = TRUE
 end
 
 # create files in temporary directory:
@@ -540,7 +545,7 @@ Dir.mkdir(dir)
    end
 end
 
-$o.number *= 2 if $o.device.dup
+$o.number *= 2 if $o.device.Dup
 file += "%0#{($o.start+$o.number-1).to_s.size}d" if $o.number > 1
 
 warn "scan(#{dir},#{file},#{$o.number})"
