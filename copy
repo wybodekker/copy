@@ -4,6 +4,12 @@
 Version='1.05'
 MYNAME = 'copy'
 
+# todo:	remove extension before adding one
+#	add options 1, 2, 3, 4 for --device=1, 2, 3, 4
+#	suppress message "scanimage: rounded value of"
+#	replace unavailable density with next higher one silently
+#	convert to Bash?
+
 <<'DOC'
 = copy - copy from scanner to pdf or image file(s)
 
@@ -188,7 +194,7 @@ def scan(op,dir,file)
       -l #{op.left} \
       -t #{op.top} \
       -x #{op.x} \
-      -y #{op.y} >#{file}.ppm 2>/dev/null
+      -y #{op.y} >#{file}.ppm
    EOF
    warn(command)
    Signal.trap('INT') { puts "\nCan't interrupt!!" }
@@ -253,6 +259,12 @@ OptionParser.new do |opt|
                op.maxx   = d.xmax
                op.maxy   = d.ymax
             end
+    opt.on('--list',
+ 		'List all devices',
+          ) do 
+	       (0...DEVICES.size).each { |i| printf "%i %s\n", i, DEVICES[i].name }
+	       exit
+	    end
     opt.separator ""
     opt.separator "Brightness, Contrast, density options"
     opt.on('-b','--brightness PCT', Integer,
