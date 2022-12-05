@@ -581,7 +581,9 @@ file += "%0#{($o.start+$o.number-1).to_s.size}d" if $o.number > 1
 
 warn "scan(#{dir},#{file},#{$o.number})"
 scan(dir,file,$o.number)
-Dir["*.pnm"].size.positive? or exit
+nscan = Dir["#{dir}/*.jpg"].size
+warn "#{nscan} pages scanned"
+nscan.positive? or exit
 
 if pdf
    w,h = $o.x,$o.y
@@ -609,7 +611,7 @@ if pdf
    tex.close
    sys("pdflatex --output-directory=#{dir} #{dir}/main >/dev/null")
    if $o.outfile
-      sys("mv #{dir}/main.pdf #{$o.outpath}/#{$o.outfile}.pdf")
+      sys("mv #{dir}/main.pdf \"#{$o.outpath}/#{$o.outfile}.pdf\"")
    else
       sys("#{PDFVIEWER} #{dir}/main.pdf")
    end
