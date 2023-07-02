@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='2.00'
+Version='2.01'
 Myname = 'copy'
 
 require 'optparse'
@@ -51,7 +51,7 @@ places for that file, and uses the first available:
 
    1. ./copy.conf
    2. ~/.copy.conf
-   3. $PREFIX/copy.conf where PREFIX is an environment variable
+   3. $PREFIX/copy.conf where PREFIX is an environment variable, like |/usr/local|
 
 You need to create this configuration file, using the |scanimage| program
 with the |--help| option, which lists the available devices, as well as
@@ -111,8 +111,8 @@ in transparency mode:
 -v, --verbose		Be verbose
 
 == Device options
--1			Set the scan device nr to 1 (or 2..9)
-			The default is 0 (Epson Perfection V350)
+-0			Set the scan device nr to 0 (or 1..9).
+			The default is 0.
     --list		List all devices
 
 == Brightness,Contrast,density options
@@ -184,15 +184,18 @@ end
 
 def setdev(n)
    $o.device == DEVICES[0] or die "you can set the scan device only once"
-   n.between?(1,DEVICES.size-1) or
+   n.between?(0,DEVICES.size-1) or
       die "the device number must be between 0 and #{DEVICES.size-1}, not #{n}"
    d = DEVICES[n]
-   $o.device = d
-   $o.name   = d.name
-   $o.mode   = d.Color
-   $o.xmax   = d.xmax
-   $o.ymax   = d.ymax
-   $o.source = d.source or nil
+   $o.device     = d
+   $o.name       = d.name
+   $o.mode       = d.Color
+   $o.xmax       = d.xmax
+   $o.ymax       = d.ymax
+   $o.source     = d.source or nil
+   $o.brightness = d.brightness
+   $o.contrast   = d.contrast
+   $o.density    = d.density
 end
 
 $cffile = ''
@@ -227,13 +230,13 @@ def find_devices
    # reported by scanimage -L, it takes 0.34 seconds.
 
    t = Time.now
-   p=`scanimage -f "'%v %m'=>'%d'"`
+   p=`scanimage -f "'%m'=>'%d', "`
 
    # this creates, in p, something like:
    # 'CANON DR-2080C' => 'canon_dr:libusb:001:003',
    # 'Epson PID 08C3' => 'epson2:libusb:002:003',
    # 'Epson WF-2650/2660 Series' => 'epkowa:usb:002:003',
-   # 'Epson Perfection V350' => 'epkowa:interpreter:001:008'
+   # 'Epson Perfection V350' => 'epkowa:interpreter:001:008',
    dev = {}
    eval "dev = {#{p}}"
    DEVICES.each do |d|
@@ -245,7 +248,6 @@ def find_devices
            "You should probably comment out all entries in",
  	   "/etc/sane.d/dll.conf except:"
       puts dev.values.map {|v| "\t"+v.sub(/:.*/,'') }.uniq
-      #sleep(2)
    end
 end
 
@@ -271,8 +273,8 @@ def scan(dir,file,number)
 	--batch-start #{$o.start} \
 	--batch-count #{$o.number} \
 	--format pnm \
-	#{$o.number > 1 ? '--batch-prompt' : ''} \
-	--batch="#{file}.ppm" 2>&1 |sed -n '/^[^P]/d;/^Place/N;N;s/[^0-9]//g;s/.*/Press RET for page & (or ^D to finish)/;p;d'
+	#{$o.number > 1 ? '--batch-prompt' : '\n\n'} \
+	--batch="#{file}.ppm" 2>&1 |sed -n '/^[^P]/d;/^Place/N;N;s/[^0-9]//g;s/.*/Press RET for page [1;38;5;11;5;48;5;9m & [0m (or ^D to finish)[F/;p;d'
    EOF
    sys <<-EOF
 	for i in #{dir}/*.ppm; do
@@ -292,9 +294,9 @@ find_devices
 
 # Option defaults:
 $o = OpenStruct.new(
-  :brightness  => 0,
-  :contrast    => 0,
-  :density     => 300,
+  :brightness  => DEVICES[0].brightness,
+  :contrast    => DEVICES[0].contrast,
+  :density     => DEVICES[0].density,
   :device      => DEVICES[0],
   :imagetype   => 'pdf',
   :left        => 0,
@@ -355,11 +357,12 @@ OptionParser.new(
    end
 
    opts.separator "\n== Device options"
-   opts.on('-1',	'set the scan device nr to 1 (or 2..9)',
+   opts.on('-0',	'set the scan device nr to 0 (or 1..9)',
      		"the default is 0 (#{$o.name})"
    ) do
-      setdev(1)
+      setdev(0)
    end
+   opts.on('-1','—') do setdev(1) end
    opts.on('-2','—') do setdev(2) end
    opts.on('-3','—') do setdev(3) end
    opts.on('-4','—') do setdev(4) end
@@ -376,7 +379,7 @@ OptionParser.new(
       exit
    end
 
-   opts.separator "\n== Brightness,Contrast,density options"
+   opts.separator "\n== brightness,contrast,density options"
 
    opts.on('-b','--brightness=PCT',Integer,
            'set brightness correction to PCT percent',
