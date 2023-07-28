@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='2.01'
+Version='2.02'
 Myname = 'copy'
 
 require 'optparse'
@@ -82,8 +82,8 @@ in transparency mode:
       :ymax    => 297.18,
       :xdpi    => [100,200,300,400,600,800,1200,2400,4800],
       :ydpi    => [100,200,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
-      :hasxy   => TRUE,
-      :Dup     => FALSE
+      :hasxy   => true,
+      :Dup     => false
     ),
     OpenStruct.new(
       :device  => 'epkowa',
@@ -97,8 +97,8 @@ in transparency mode:
       :ymax    => 122.17,
       :xdpi    => [300,600,1200,2400,4800],
       :ydpi    => [100,300,400,600,800,1200,1600,2400,3600,4800,6600,9600],
-      :hasxy   => TRUE,
-      :Dup     => FALSE
+      :hasxy   => true,
+      :Dup     => false
     ),
   ]
 
@@ -240,10 +240,12 @@ def find_devices
    dev = {}
    eval "dev = {#{p}}"
    DEVICES.each do |d|
-      d.device = dev[d.name] or die "'#{d.name}' is not an existing device"
+      d.device = dev[d.name] or die "'#{d.name}' is not an existing device.",
+					"Have a look at the output of",
+					%q{scanimage -f "'%m'=>'%d', %n"}
    end
    tt = Time.now - t 
-   if tt > 2
+   if tt > 3
       Warn "Device scan took #{tt} seconds.",
            "You should probably comment out all entries in",
  	   "/etc/sane.d/dll.conf except:"
@@ -273,20 +275,20 @@ def scan(dir,file,number)
 	--batch-start #{$o.start} \
 	--batch-count #{$o.number} \
 	--format pnm \
-	#{$o.number > 1 ? '--batch-prompt' : '\n\n'} \
+	#{$o.number > 1 ? '--batch-prompt' : ''} \
 	--batch="#{file}.ppm" 2>&1 |sed -n '/^[^P]/d;/^Place/N;N;s/[^0-9]//g;s/.*/Press RET for page [1;38;5;11;5;48;5;9m & [0m (or ^D to finish)[F/;p;d'
    EOF
    sys <<-EOF
 	for i in #{dir}/*.ppm; do
-	   test -e $i || break
+	   out="${i%.ppm}".#{$o.imagetype}
 	   exiftool -comment='' -overwrite_original_in_place "$i" >/dev/null
 	   convert -quality #{$o.quality} \
 		-density #{$o.density} \
 		-brightness-contrast #{$o.brightness}x#{$o.contrast} \
 		-comment '' \
-		"$i" -rotate #{$o.rotate} "${i%.ppm}".#{$o.imagetype} &&
-	   rm "$i"
-        done
+		"$i" -rotate #{$o.rotate} "$out"
+	    test #{$o.imagetype} = ppm || rm "$i"
+	done
    EOF
 end
 
@@ -309,7 +311,7 @@ $o = OpenStruct.new(
   :rotate      => 0,
   :start       => 1,
   :top         => 0,
-  :verbose     => FALSE,
+  :verbose     => false,
   :x           => DEFAULTX || DEVICES[0].xmax,
   :xmax        => DEVICES[0].xmax,
   :y           => DEFAULTY || DEVICES[0].ymax,
@@ -353,7 +355,7 @@ OptionParser.new(
    end
 
    opts.on('-v','--verbose','be verbose') do
-      $o.verbose = TRUE
+      $o.verbose = true
    end
 
    opts.separator "\n== Device options"
@@ -563,7 +565,7 @@ ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
 findex('scanimage','convert','pdflatex',PDFVIEWER)
 if $o.imagetype == 'pdf'
    $o.imagetype = 'jpg'
-   pdf = TRUE
+   pdf = true
 end
 
 # create files in temporary directory:
@@ -584,7 +586,7 @@ file += "%0#{($o.start+$o.number-1).to_s.size}d" if $o.number > 1
 
 warn "scan(#{dir},#{file},#{$o.number})"
 scan(dir,file,$o.number)
-nscan = Dir["#{dir}/*.jpg"].size
+nscan = Dir["#{dir}/*.#{$o.imagetype}"].size
 warn "#{nscan} pages scanned"
 nscan.positive? or exit
 
