@@ -22,24 +22,26 @@ copy [options]
 
 = Description
 copy, without any options or arguments, scans an image on the first
-available device, at the default size, producing a one page PDF, which is
-then displayed with your favorite pdf viewer. The default size is the
-maximum size of the device, unless |DEFAULTX| and/or |DEFAULTY| have been
-set in de configursation file.
-With the |--number| option, a multi-page pdf document can
-be produced. The default is to scan 1 page, which will be scanned
-without delay; if the option is set to 2 or more, you need to press
-|RETURN| for every page to be scanned, giving you time to place a new
-page on the scanner. You don't need to count pages - you can set the
-|--number| option to a large number and stop scanning with |control-D|.
+available device, at the default size, producing a one page PDF (two pages
+on a duplex scanner), which is then displayed with your favorite pdf
+viewer. The default size is the maximum size of the device, unless
+|DEFAULTX| and/or |DEFAULTY| have been set in de configursation file.
 
-Instead of pdf, you can scan to one or more image files with the
-|--imagetype| option. Again, these are saved in the file which you specified
-with the |--outfile=X| option, where |X| is |copy| by default.
-If you use the |--number| option, this file name will be extended with |1|
-for the first scan, |2| for the second, and so on.
-With the |--start| option, numbering can be started with an other number than 1.
+With the |--number=X| option, multiple sheets can be scanned, resulting in
+a multi-page pdf document. The default is to scan 1 sheet, which will be
+scanned without delay; if the option is set to 2 or more, you need to
+press |RETURN| for every page to be scanned, including the first, giving
+you time to place a new sheet on the scanner. You don't need to count
+sheets - you can set the |--number| option to a large number and stop
+scanning with |control-D|.
 
+With the |--imagetype=X| option, you can scan to one or more image files,
+instead of pdf.X can be one of |pdf, png, jpg, ppm, gif, pgm, pbm, tif|
+Again, these are saved in the file which you specified with the
+|--outfile=X| option, where |X| is |copy| by default. If you scan multiple
+pages, this file name will be extended with |1| for the first page, |2| for
+the second, and so on. With the |--start| option, numbering can be started
+with an other number than 1.
 Many options are available to influence brightness, contrast, pixel
 density, color mode, image quality, rotation, page position and size, and
 more. See the Options section for more information.
@@ -116,9 +118,9 @@ in transparency mode:
     --list		List all devices
 
 == Brightness,Contrast,density options
--b, --brightness=PCT	Set brightness correction to PCT percent (default: 0)
--c, --contrast=PCT	Set contrast correction to PCT percent (default: 0)
--d, --density=INT	Set contrast correction to INT dpi (default: 300)
+-b, --brightness=X	Set brightness correction to X percent (default: 0)
+-c, --contrast=X	Set contrast correction to X percent (default: 0)
+-d, --density=X		Set contrast correction to X dpi (default: 300)
 
 == Color mode options
 -C, --color		Color mode (the default)
@@ -126,28 +128,29 @@ in transparency mode:
 -L, --lineart		Lineart instead of Color mode
 
 == Positioning options
--l, --left=MM		Set left offset to MM mm (default: 0).
--t, --top=MM		Set top offset to MM mm (default: 0).
--x, --x=MM		Set width to MM mm (default: 215.9).
--y, --y=MM		Set height to MM mm (default: 297.18).
--A, --A=n		Set page size to A0..A8
--B, --cd-back		Back of jewelbox.
--F, --cd-front		Front of jewelbox.
--D, --cd-disk		CD-disk.
+-l, --left=X		set left offset to X mm (default: 0)
+-t, --top=X		set top offset to X mm (default: 0)
+-x, --x=X		set width to X mm (default: scanner maximum)
+-y, --y=X		set height to X mm (default: scanner maximum)
+-A, --A=X		set page size to X, where X can be A0..A8
+-B, --cd-back		back of jewelbox
+-F, --cd-front		front of jewelbox
+-D, --cd-disk		CD-disk
 
 == Output options
--o, --outfile=STR	Set output filename to STR (default: copy).
+-o, --outfile=X		Set output filename to X (default: copy).
 			If not explicitly set, copy.pdf is not saved, but
-			displayed with the application defined in |PDFVIEWER|.
+			displayed with the application defined in the 
+			environment variable |PDFVIEWER|.
 			Other image types are always saved.
--i, --imagetype=STR	set image type to STR; default: pdf
+-i, --imagetype=X	set image type to X; default: pdf
 
 == Conversion & Interaction options
--s, --start=INT		Starting number for multiple output files (default: 1)
--n, --number=INT	Number of sheets to scan (1 or more, default: 1);
+-s, --start=X		Starting number for multiple output files (default: 1)
+-n, --number=X		Number of sheets to scan (1 or more, default: 1);
 			on a duplex scanner, this generates twice as many pages.
--q, --quality=PCT	jpg conversion quality (%,default 75)
--r, --rotate=INT	rotate INT degrees clockwise
+-q, --quality=X		jpg conversion quality (%, default 75)
+-r, --rotate=X		rotate X degrees clockwise
 -e, --examples		show some examples of use
 
 = Author
@@ -322,9 +325,7 @@ OptionParser.new(
    banner = <<~EOD,
 	This is copy version #{Version}:
 	copy from scanner to pdf or image(s)\n
-	Usage: #{Myname} [-1..9]  [other options]\n
-	With --outfile=S, JPEG images are generated
-	Without --outfile, a (multipage) pdf is produced.
+	Usage: #{Myname} -[0..9]  [other options]\n
 	Options:
 	EOD
    width = 23,
@@ -383,8 +384,8 @@ OptionParser.new(
 
    opts.separator "\n== brightness,contrast,density options"
 
-   opts.on('-b','--brightness=PCT',Integer,
-           'set brightness correction to PCT percent',
+   opts.on('-b','--brightness=X',Integer,
+           'set brightness correction to X percent',
            " (default: #{$o.brightness})"
    ) do |v|
       v.between?(-100,100) or
@@ -392,16 +393,16 @@ OptionParser.new(
       $o.brightness = v
    end
 
-   opts.on('-c','--contrast=PCT',Integer,
-      "set contrast correction to PCT percent (default: #{$o.contrast})"
+   opts.on('-c','--contrast=X',Integer,
+      "set contrast correction to X percent (default: #{$o.contrast})"
    ) do |v|
       v.between?(-100,100) or
          die "contrast must be between -100 and 100"
       $o.contrast = v
    end
 
-   opts.on('-d','--density=INT',Integer,
-      "set contrast correction to INT dpi (default: #{$o.density})"
+   opts.on('-d','--density=X',Integer,
+      "set contrast correction to X dpi (default: #{$o.density})"
    ) do |v|
       $o.device.xdpi.include?(v) or
          die("density must be in #{$o.device.xdpi.inspect} dpi")
@@ -424,32 +425,32 @@ OptionParser.new(
 
    opts.separator "\n== Positioning options"
 
-   opts.on('-l','--left=MM',Integer,
-           "set left offset to MM mm (default: #{$o.left})"
+   opts.on('-l','--left=X',Integer,
+           "set left offset to X mm (default: #{$o.left})"
    ) do |v|
       $o.left = v
    end
 
-   opts.on('-t','--top=MM',Integer,
-           "set top offset to MM mm (default: #{$o.top})"
+   opts.on('-t','--top=X',Integer,
+           "set top offset to X mm (default: #{$o.top})"
    ) do |v|
       $o.top = v
    end
 
-   opts.on('-x','--x=MM',Integer,
-           "set width to MM mm (default: #{$o.x})"
+   opts.on('-x','--x=X',Integer,
+           "set width to X mm (default: #{$o.x})"
    ) do |v|
       $o.x = [v,$o.xmax].min
    end
 
-   opts.on('-y','--y=MM',Integer,
-           "set height to MM mm (default: #{$o.y})"
+   opts.on('-y','--y=X',Integer,
+           "set height to X mm (default: #{$o.y})"
    ) do |v|
       $o.y = [v,$o.ymax].min
    end
 
-   opts.on('-A','--A=n',Integer,
-           "set page size to A0..A8"
+   opts.on('-A','--A=X',Integer,
+           "set page size to X, where X can be A0..A8"
    ) do |v|
       v.between?(0,8) or die "page size must be between 0 and 8"
       w=(0..8).map {|x| (841/1.41412**x+0.5).to_i }
@@ -487,8 +488,8 @@ OptionParser.new(
 
    opts.separator "\n== Output options"
 
-   opts.on('-o','--outfile=STR',String,
-           'set output filename to STR (default: copy)'
+   opts.on('-o','--outfile=X',String,
+           'set output filename to X (default: copy)'
    )  do |v|
       b=v.split('/')[-1]
       if b != v # slash found?
@@ -497,34 +498,34 @@ OptionParser.new(
       $o.outfile = b
    end
 
-   opts.on('-i','--imagetype=STR',String,
-      'set image type to STR; default: pdf')  do |v|
+   opts.on('-i','--imagetype=X',String,
+      'set image type to X; default: pdf')  do |v|
       $o.imagetype = v
-      v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tiff)$/ or
+      v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tif)$/ or
          die("Unknown image type #{v}")
    end
 
    opts.separator "\n== Conversion & Interaction options"
 
-   opts.on('-s','--start=INT',Integer,
+   opts.on('-s','--start=X',Integer,
            'Starting number for multiple output files (default: 1)'
    ) do |v|
       $o.start = v
    end
 
-   opts.on('-n','--number=INT',Integer,
+   opts.on('-n','--number=X',Integer,
            'Number of sheets to scan (1 or more, default: 1)'
    ) do |v|
       $o.number = v
    end
 
-   opts.on('-q','--quality=PCT',Integer,
+   opts.on('-q','--quality=X',Integer,
            "jpg conversion quality (%,default #{$o.quality})"
    ) do |v|
       $o.quality = v
    end
 
-   opts.on('-r','--rotate=INT',Integer,'rotate INT degrees clockwise') do |v|
+   opts.on('-r','--rotate=X',Integer,'rotate X degrees clockwise') do |v|
       v = v.to_i
       unless [0,90,180,270].include?(v)
         die("--rotate option argument must be 0,90,180,or 270")
