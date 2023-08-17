@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='2.02'
+Version='2.03'
 Myname = 'copy'
 
 require 'optparse'
@@ -133,9 +133,6 @@ in transparency mode:
 -x, --x=X		set width to X mm (default: scanner maximum)
 -y, --y=X		set height to X mm (default: scanner maximum)
 -A, --A=X		set page size to X, where X can be A0..A8
--B, --cd-back		back of jewelbox
--F, --cd-front		front of jewelbox
--D, --cd-disk		CD-disk
 
 == Output options
 -o, --outfile=X		Set output filename to X (default: copy).
@@ -457,33 +454,6 @@ OptionParser.new(
       h=(0..8).map {|y| (1189/1.41412**y+0.5).to_i }
       $o.x = [w[v],$o.xmax].min
       $o.y = [h[v],$o.ymax].min
-   end
-
-   opts.on('-B','--cd-back','back of jewelbox') do
-      $o.x = 137;
-      $o.y = 117;
-      $o.top = 3;a.delete_if { |x| x =~ /—$/}
-      $o.left = 3;
-      $o.outfile = 'back';
-      $o.mode = $o.device.Color
-   end
-
-   opts.on('-F','--cd-front','front of jewelbox') do
-      $o.x = 119;
-      $o.y = 117;
-      $o.top = 3;
-      $o.left = 17;
-      $o.outfile = 'front';
-      $o.mode = $o.device.Color
-   end
-
-   opts.on('-D','--cd-disk','CD-disk') do
-      $o.x = 120;
-      $o.y = 120;
-      $o.top = 0;
-      $o.left = 0;
-      $o.outfile = 'disk';
-      $o.mode = $o.device.Color
    end
 
    opts.separator "\n== Output options"
