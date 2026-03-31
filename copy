@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='2.03'
+Version='2.04'
 Myname = 'copy'
 
 require 'optparse'
@@ -30,7 +30,7 @@ viewer. The default size is the maximum size of the device, unless
 With the |--number=X| option, multiple sheets can be scanned, resulting in
 a multi-page pdf document. The default is to scan 1 sheet, which will be
 scanned without delay; if the option is set to 2 or more, you need to
-press |RETURN| for every page to be scanned, including the first, giving
+press |RETURN| for every page to be scanned, except the first, giving
 you time to place a new sheet on the scanner. You don't need to count
 sheets - you can set the |--number| option to a large number and stop
 scanning with |control-D|.
@@ -151,23 +151,31 @@ in transparency mode:
 -e, --examples		show some examples of use
 
 = Author
-[Wybo Dekker](wybo@dekkerdocumenten.nl)
+[Wybo Dekker](wybodekker@me.com)
 
 = Copyright
 Released under the [GNU General Public License](www.gnu.org/copyleft/gpl.html)
 DOC
 
-def warn(*m) mess :magenta,*m if $o.verbose; end
+def warn(*m) Warn *m if $o.verbose; end
 def Warn(*m) mess :magenta,*m; end
-def die(*m) mess :red,*m; exit 1; end
+def  die(*m) mess :red,*m; exit 1; end
 
 # print colored string(s), 1 line per argument
-def mess(color,*m)
-   name = Myname + ': '
-   m.each do |v|
-      STDERR.puts "#{name}#{v}".__send__(color)
-      name.gsub!(/./,' ')
-   end
+# First argument can be foreground color
+# Second argument can be backgroud color
+def mess(*args)
+  # Set default colors
+  foreground_color = args.first.is_a?(Symbol) ? args.shift : :black
+  background_color = args.first.is_a?(Symbol) ? args.shift : :default
+  return if args.empty?
+  prefix=Myname + ": "
+  # Print the remaining arguments with indentation, the first prefixed with
+  # Myname:
+  args.each { |s|
+    puts (prefix + " #{s}").colorize(color: foreground_color, background: background_color)
+    prefix.gsub!(/./,' ')
+  }
 end
 
 def help
@@ -177,7 +185,7 @@ end
 def findex(*f)
    missing=[]
    f.each do |v|
-        find_executable0(v) or missing.push(v)
+        find_executable0(v.sub(/ .*/,'')) or missing.push(v)
    end
    die("Missing executables: #{missing}") if missing.size > 0
 end
@@ -240,12 +248,12 @@ def find_devices
    dev = {}
    eval "dev = {#{p}}"
    DEVICES.each do |d|
-      d.device = dev[d.name] or die "'#{d.name}' is not an existing device.",
+      d.device = dev[d.name] or Warn "'#{d.name}' is not an existing device.",
 					"Have a look at the output of",
 					%q{scanimage -f "'%m'=>'%d', %n"}
    end
    tt = Time.now - t 
-   if tt > 3
+   if tt > 10
       Warn "Device scan took #{tt} seconds.",
            "You should probably comment out all entries in",
  	   "/etc/sane.d/dll.conf except:"
@@ -254,15 +262,18 @@ def find_devices
 end
 
 def sys(command)
-   warn(command.strip.squeeze(' '))
-   system(command) or die "system call #{command} failed"
+   c=command.strip.gsub(/[ \t]+/,' ')
+   warn(c)
+   # if c is a scanimage command, the sys-call may fail because the scanner
+   # neeeds a wake-up. In that case, give it a second try:
+   system(c) or system(c) or die "system call #{c} failed"
 end
 
-def scan(dir,file,number)
-   file =~ /^\// or file = "#{dir}/#{file}"
-   sys <<-EOF.strip.gsub(/ +/,' ')
+def onescan(file,start,last)
+   warn "onescan(#{file},#{start},#{last})"
+   sys <<-EOF
         scanimage \
-        --device=#{$o.device.device} \
+        --device="#{$o.device.device}" \
         #{$o.source.nil? ? nil : '--source='+$o.source.gsub(/ /,'\\ ')} \
         #{$o.film.nil? ? nil : '--film-type='+$o.film.gsub(/ /,'\\ ')} \
         --#{$o.device.hasxy ? 'x-' : ''}resolution #{$o.density} \
@@ -272,12 +283,35 @@ def scan(dir,file,number)
         -t #{$o.top} \
         -x #{$o.x} \
         -y #{$o.y} \
-	--batch-start #{$o.start} \
-	--batch-count #{$o.number} \
+	--batch-start #{start} \
+	--batch-count #{$o.device.Dup ? 2 : 1} \
 	--format pnm \
-	#{$o.number > 1 ? '--batch-prompt' : ''} \
-	--batch="#{file}.ppm" 2>&1 |sed -n '/^[^P]/d;/^Place/N;N;s/[^0-9]//g;s/.*/Press RET for page [1;38;5;11;5;48;5;9m & [0m (or ^D to finish)[F/;p;d'
+	--batch="#{file}.ppm" 2>/dev/null
    EOF
+   unless start == last
+      puts "Press enter to scan sheet \e[1;5;37;43m #{start.next} \e[0m"
+      i=gets
+      puts "\e[F\e[F"
+   end
+   return i # nil if the user typed ctrl-D
+end
+
+def scan(dir,file)
+   warn "Running: scan(#{dir},#{file})"
+   dup = $o.device.Dup	# true if scanning two sides
+   inc = dup ? 2 : 1	# increment filename with 2 if scanning two sides
+   last = $o.number*inc	# total no of pages/files generated
+   # for a single page scan, filename is set with -o|--output option,
+   # default: copy
+   # For a multipage scan, the filename is suffixed with 1, 2, 3, ... or, 
+   # there are more than 9 pages, 01, 02, 03,,, or even 001, 002, 003...
+   f = file
+   f += "%0#{last.to_s.size}d" if last > 1
+   f =~ /^\// or f = "#{dir}/#{f}"
+   (1..last).step(inc).each do |n|
+       # break the loop if the users typed ctrl-D
+       onescan(f,n,last-(dup ? 1 : 0)) or break
+   end
    sys <<-EOF
 	for i in #{dir}/*.ppm; do
 	   out="${i%.ppm}".#{$o.imagetype}
@@ -290,6 +324,9 @@ def scan(dir,file,number)
 	    test #{$o.imagetype} = ppm || rm "$i"
 	done
    EOF
+   nscan = Dir["#{dir}/*.#{$o.imagetype}"].size
+   warn "#{nscan} pages scanned"
+   nscan.positive? or exit
 end
 
 find_devices
@@ -450,8 +487,8 @@ OptionParser.new(
            "set page size to X, where X can be A0..A8"
    ) do |v|
       v.between?(0,8) or die "page size must be between 0 and 8"
-      w=(0..8).map {|x| (841/1.41412**x+0.5).to_i }
-      h=(0..8).map {|y| (1189/1.41412**y+0.5).to_i }
+      w=(0..8).map {|x| (841/1.41412**x).to_i }
+      h=(0..8).map {|y| (1189/1.41412**y).to_i }
       $o.x = [w[v],$o.xmax].min
       $o.y = [h[v],$o.ymax].min
    end
@@ -465,7 +502,7 @@ OptionParser.new(
       if b != v # slash found?
          $o.outpath = v.sub(/(.*)\/.*/,'\1')
       end
-      $o.outfile = b
+      $o.outfile = b.sub(/\..*/,'') # remove any extension
    end
 
    opts.on('-i','--imagetype=X',String,
@@ -552,14 +589,8 @@ Dir.mkdir(dir)
    end
 end
 
-$o.number *= 2 if $o.device.Dup
-file += "%0#{($o.start+$o.number-1).to_s.size}d" if $o.number > 1
 
-warn "scan(#{dir},#{file},#{$o.number})"
-scan(dir,file,$o.number)
-nscan = Dir["#{dir}/*.#{$o.imagetype}"].size
-warn "#{nscan} pages scanned"
-nscan.positive? or exit
+scan(dir,file)
 
 if pdf
    w,h = $o.x,$o.y
@@ -577,9 +608,7 @@ if pdf
 
    Dir["#{dir}/*."+$o.imagetype].sort.each do |f|
       tex.puts <<~'EOD' % f
-	\includegraphics[height=.999
-	\paperheight,width=.999
-	\paperwidth]{%s}
+	\includegraphics[height=.999\paperheight,width=.999\paperwidth]{%s}
 	\eject
 	EOD
    end
