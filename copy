@@ -179,7 +179,8 @@ def mess(*args)
 end
 
 def help
-  system("echo \"#{Help}\" | less -P#{Myname}-#{Version.tr('.','·')}")
+  nv="-#{Myname}-#{Version.sub(/\./,'\\.')} press h for help, q to quit"
+  IO.popen("less -P'#{nv}'",'w') do |pipe| pipe.puts Help end
 end
 
 def findex(*f)
@@ -220,7 +221,9 @@ def find_devices
        end
    end
    defined? DEVICES or die "Found no configuration file"
+end
 
+def verify_devices
    # The scanners now have a name (DEVICE[n].name), but no device
    # (DEVICE[n].device).
    # We cannot store the device names, because these change when as
@@ -567,6 +570,8 @@ OptionParser.new(
 
    opts.parse!
 end
+
+verify_devices
 
 warn "Configuration file: #{$cffile || 'none'}"
 ARGV.size >0 and die("Unexpected arguments: #{ARGV}\n")
