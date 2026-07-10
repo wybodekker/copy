@@ -141,6 +141,7 @@ in transparency mode:
 			environment variable |PDFVIEWER|.
 			Other image types are always saved.
 -i, --imagetype=X	set image type to X; default: pdf
+-j, --jpg		output to jpg, equivalent to -ijpg
 
 == Conversion & Interaction options
 -s, --start=X		Starting number for multiple output files (default: 1)
