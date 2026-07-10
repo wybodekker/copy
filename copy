@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-Version='2.04'
+Version='2.05'
 Myname = 'copy'
 
 require 'optparse'
@@ -514,6 +514,11 @@ OptionParser.new(
       v =~/^(pdf|png|jpg|ppm|gif|pgm|pbm|tif)$/ or
          die("Unknown image type #{v}")
    end
+
+   opts.on('-j','--jpg','output to jpg, equivalent to -ijpg'
+   )  do |v|
+      $o.imagetype = 'jpg'
+   end 
 
    opts.separator "\n== Conversion & Interaction options"
 
