@@ -11,7 +11,7 @@ copy from scanner to pdf or image file(s)
 |    type:|ruby|
 |  author:|Wybo Dekker|
 |   email:|[wybodekker@me.com](mailto:wybodekker@me.com)|
-| version:|2.04|
+| version:|2.05|
 | license:|GNU General Public License|
 |   intro:|copy, without any options or arguments, scans an image on|
 |         |the first available device, at the default size, producing|
@@ -51,6 +51,7 @@ copy from scanner to pdf or image file(s)
 |**Output options**||
 |-o, --outfile=X		|set output filename to X (default: copy)|
 |-i, --imagetype=X	|set image type to X; default: pdf|
+|-j, --jpg		|output to jpg, equivalent to -ijpg|
 |**Conversion & Interaction options**||
 |-s, --start=X		|Starting number for multiple output files (default: 1)|
 |-n, --number=X		|Number of sheets to scan (1 or more, default: 1)|

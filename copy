@@ -53,7 +53,7 @@ places for that file, and uses the first available:
 
    1. ./copy.conf
    2. ~/.copy.conf
-   3. $PREFIX/copy.conf where PREFIX is an environment variable, like |/usr/local|
+   3. /usr/local/copy.conf
 
 You need to create this configuration file, using the |scanimage| program
 with the |--help| option, which lists the available devices, as well as
@@ -213,7 +213,7 @@ def find_devices
    # Read DEVICES and PDFVIEWER from the config file
    ['./copy.conf',
     ENV['HOME']+'/.copy.conf',
-    ENV['PREFIX']+'/copy.conf'
+    '/usr/local/copy.conf'
    ].each do |c|
        if File.exist?(c)
           load c
